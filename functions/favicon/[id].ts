@@ -34,6 +34,7 @@ interface CacheMeta {
 const TTL_MIN = 60
 const TTL_MAX = 2_592_000 // 30 天（KV 上限）
 const DEFAULT_TTL = 2_592_000
+const FAVICON_SIZE = 80
 
 /** 回源超时 */
 const UPSTREAM_TIMEOUT_MS = 8_000
@@ -67,10 +68,11 @@ function buildFaviconUrl(source: string, domain: string): string {
     case 'duckduckgo':
       return `https://icons.duckduckgo.com/ip3/${domain}.ico`
     case '0x3':
-      return `https://0x3.com/icon?host=${domain}`
+      return `https://0x3.com/icon?host=${domain}&size=${FAVICON_SIZE}`
     case 'google':
     default:
-      return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
+      // Google favicon service 支持 sz 参数，固定请求 80x80，前端统一渲染为 64x64。
+      return `https://www.google.com/s2/favicons?domain=${domain}&sz=${FAVICON_SIZE}`
   }
 }
 

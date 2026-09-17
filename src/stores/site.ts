@@ -1,5 +1,6 @@
 import preset from '@/preset.json'
 import type { Category, Group, Site } from '@/types'
+import { getFaviconUrl } from '@/utils'
 import { isAdminStored, loadViewerCache } from '@/utils/publicConfig'
 
 function loadData(): Category[] | undefined {
@@ -49,8 +50,14 @@ export const useSiteStore = defineStore('site', () => {
   }
 
   function addSite(site: Site) {
-    site.url = ensureHttps(site?.url)
-    data.value[cateIndex.value].groupList[groupIndex.value].siteList.push(site)
+    const url = ensureHttps(site?.url)
+    const nextSite: Site = {
+      ...site,
+      url,
+      // 新增网站自动绑定自己的 Favicon；用户填写自定义图标时优先使用自定义值。
+      favicon: site.favicon?.trim() || getFaviconUrl(url),
+    }
+    data.value[cateIndex.value].groupList[groupIndex.value].siteList.push(nextSite)
   }
   function addGroup(group: Group) {
     data.value[cateIndex.value].groupList.push(group)
@@ -59,9 +66,17 @@ export const useSiteStore = defineStore('site', () => {
     data.value.push(cate)
   }
   function updateSite(site: Partial<Site>) {
-    if (site.url !== undefined)
-      site.url = ensureHttps(site.url)
-    Object.assign(data.value[cateIndex.value].groupList[groupIndex.value].siteList[siteIndex.value], site)
+    const current = data.value[cateIndex.value].groupList[groupIndex.value].siteList[siteIndex.value]
+    const nextUrl = site.url !== undefined ? ensureHttps(site.url) : current.url
+    const patch: Partial<Site> = {
+      ...site,
+      url: nextUrl,
+    }
+    // 编辑网址后若没有填写自定义 Favicon，跟随新域名重新获取对应图标。
+    const oldAutoFavicon = getFaviconUrl(current.url)
+    if (site.url !== undefined && (!site.favicon?.trim() || site.favicon === current.favicon || site.favicon === oldAutoFavicon))
+      patch.favicon = getFaviconUrl(nextUrl)
+    Object.assign(current, patch)
   }
   function updateGroup(group: Partial<Group>) {
     Object.assign(data.value[cateIndex.value].groupList[groupIndex.value], group)

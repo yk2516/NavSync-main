@@ -32,20 +32,65 @@ function handleFaviconError(site: Site) {
 </script>
 
 <template>
-  <div :style="iconStyle" h-18 w-18 md="h-22 w-22" lg="h-22 w-22">
-    <div v-if="!isGen && !imgLoaded" bg="$setting-group-bg-c" h-full w-full animate-pulse rounded-full />
+  <!-- 上游资源固定按 80x80 请求，页面固定 64x64 渲染，避免 Favicon 过小 -->
+  <div class="favicon-box" :style="iconStyle">
+    <div v-if="!isGen && !imgLoaded" class="favicon-skeleton" />
     <img
       v-if="!isGen"
+      class="favicon-image"
       :src="site.favicon || getFaviconUrl(site.url)"
-      h-full w-full
       decoding="async"
       loading="lazy"
       :style="{ opacity: imgLoaded ? 1 : 0, transition: 'opacity 0.3s' }"
       @error="handleFaviconError(site)"
       @load="imgLoaded = true"
     >
-    <div v-else :style="{ backgroundColor: site.bgColor }" h-full w-full flex-center scale-112 rounded-full text="white sm">
+    <div v-else class="favicon-fallback" :style="{ backgroundColor: site.bgColor }">
       {{ site.name.length > 0 ? site.name.toLocaleUpperCase().charAt(0) : 'c' }}
     </div>
   </div>
 </template>
+
+<style lang="scss" scoped>
+.favicon-box,
+.favicon-skeleton,
+.favicon-image,
+.favicon-fallback {
+  width: 64px;
+  height: 64px;
+}
+
+.favicon-box {
+  flex: 0 0 64px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.favicon-skeleton {
+  background: var(--setting-group-bg-c);
+  border-radius: 12px;
+  animation: favicon-pulse 1.4s ease-in-out infinite;
+}
+
+.favicon-image {
+  display: block;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.favicon-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+  transform: scale(.92);
+}
+
+@keyframes favicon-pulse {
+  0%, 100% { opacity: .45; }
+  50% { opacity: .85; }
+}
+</style>

@@ -4,6 +4,7 @@ import MainClock from './components/MainClock.vue'
 import MainSearch from './components/MainSearch.vue'
 import SiteContainer from './components/SiteContainer.vue'
 import MainSetting from './components/MainSetting.vue'
+import WallpaperPanel from './components/WallpaperPanel.vue'
 import { toggleSiteSytle } from '@/composables/dark'
 
 defineOptions({
@@ -32,6 +33,8 @@ const viewerStore = useViewerStore()
         </div>
       </template>
       <MainSetting />
+      <!-- 管理员和访客都可使用的本地壁纸面板 -->
+      <WallpaperPanel />
       <TheFooter v-if="!adminStore.isGate" />
     </div>
   </TheDoc>

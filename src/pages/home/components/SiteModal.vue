@@ -46,7 +46,7 @@ function handleAllCommit(_e: Event) {
       <n-input
         v-if="modalStore.target === 'site'"
         v-model:value="modalStore.inputValues.favicon"
-        placeholder="图标链接（选填）"
+        placeholder="自定义 Favicon（选填，留空自动获取）"
         my-8
         @keydown.enter="handleAllCommit"
       />

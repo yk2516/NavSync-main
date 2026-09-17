@@ -3,6 +3,7 @@ import { RouterLink } from 'vue-router'
 
 const route = useRoute()
 const adminStore = useAdminStore()
+const wallpaperStore = useWallpaperStore()
 
 function toggleSetting() {
   return route.path === '/setting'
@@ -23,6 +24,15 @@ function getIconClass(routeName: string) {
       </div>
     </RouterLink>
     <div flex gap-x-8>
+      <!-- 壁纸属于本地外观设置，管理员和访客都可以打开 -->
+      <button
+        type="button"
+        title="壁纸与外观"
+        class="header-icon-button"
+        i-carbon:image
+        icon-btn
+        @click="wallpaperStore.openPanel"
+      />
       <!-- 设置入口只对站长显示：访客看不到齿轮，也没有可点的入口 -->
       <RouterLink
         v-if="adminStore.isAdmin"
