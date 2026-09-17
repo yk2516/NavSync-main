@@ -85,17 +85,19 @@ const renderStore = useRenderStore()
             >
               <template #item="{ element: site, index }: { element: Site, index: number }">
                 <div>
-                  <!-- Site item -->
+                  <!-- Site item：图标在上、名称在下的纵向卡片 -->
                   <a
-                    class="site__handle"
-                    :class="{ 'site--setting': settingStore.isSetting, 'hover:bg-$site-hover-c': !settingStore.isDragging }"
+                    class="site__handle site-card"
+                    :class="{
+                      'site--setting': settingStore.isSetting,
+                      'site-card--dragging': settingStore.isDragging,
+                    }"
                     :href="site.url" target="_blank"
-                    inline-flex cursor-pointer items-center gap-x-4 px-4 py-4 max-w-100p
-                    style="margin: 0 2px;"
+                    :title="site.name"
                     @click="e => handleSiteClick(site.url, i, index, e)"
                   >
-                    <Favicon class="shrink-0" :site="site" />
-                    <span md="text-15" lg="text-15" whitespace-nowrap text-14 overflow-hidden ellipsis>{{ site.name }}</span>
+                    <Favicon :site="site" />
+                    <span class="site-card__name">{{ site.name }}</span>
                   </a>
                 </div>
               </template>
@@ -125,9 +127,37 @@ const renderStore = useRenderStore()
 </template>
 
 <style lang="scss" scoped>
+/* 纵向站点卡片：图标在上、名称在下（原先的左图右文观感很差） */
+.site-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color .18s ease, transform .18s ease;
+}
+
+.site-card:not(.site-card--dragging):hover {
+  background-color: var(--site-hover-c);
+  transform: translateY(-2px);
+}
+
+.site-card__name {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.25;
+  opacity: .85;
+}
+
 .site--setting {
   border: 1px dashed var(--setting-border-c);
-  border-radius: 2px;
+  border-radius: 12px;
 }
 
 .group__header--setting {

@@ -107,8 +107,11 @@ body::-webkit-scrollbar {
     margin: 0 !important;
   }
 
+  /* 移动端：内容区铺满、去掉大圆角与多余留白，避免小屏显得局促 */
   .mobile-index {
     margin: 0;
+    padding: 16px;
+    border-radius: 0;
   }
 }
 
@@ -120,15 +123,28 @@ body::-webkit-scrollbar {
   user-drag:none;
 }
 
-/* Wallpaper layer: shared by the admin and visitor views. */
+/* ---------- 壁纸层 ----------
+ * 层次（由下到上）：
+ *   1. html 背景色   主题底色（--bg-c / 暗色 --dark-bg-c）
+ *   2. html 背景图   皮肤渐变（--wallpaper-skin，default 皮肤为 none）
+ *   3. body::before  壁纸图片（z-index -2）
+ *   4. body::after   渐变壁纸（z-index -1）
+ *   5. 页面内容
+ *
+ * body 自身必须保持透明：body 的背景绘制在负 z-index 伪元素之上，
+ * 之前写在 body 上的不透明皮肤背景，正是「设了壁纸却完全看不见」的原因。
+ */
+html {
+  background-image: var(--wallpaper-skin, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 body {
   position: relative;
   min-height: 100vh;
-  background: var(--wallpaper-skin, var(--bg-c));
-}
-
-html[data-wallpaper-source='none'] body {
-  background: var(--bg-c);
+  background: transparent;
 }
 
 body::before {
@@ -154,29 +170,28 @@ body::after {
   inset: 0;
   pointer-events: none;
   background: var(--wallpaper-gradient, none);
-  opacity: .92;
 }
 
+/* 内容容器：半透明玻璃。不做明显描边——描边观感偏重，用户反馈很丑 */
 .mobile-index {
   position: relative;
   overflow: hidden;
-  background-color: color-mix(in srgb, var(--main-bg-c) calc(var(--wallpaper-sidebar-opacity, .72) * 100%), transparent) !important;
-  border: 1px solid color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 12%, transparent);
+  background-color: color-mix(in srgb, var(--main-bg-c) calc(var(--wallpaper-sidebar-opacity, .45) * 100%), transparent) !important;
   border-radius: 16px;
-  backdrop-filter: blur(12px) saturate(120%);
-  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(125%);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
 }
 
 html[data-wallpaper-glass='liquid'] .mobile-index {
-  background-color: color-mix(in srgb, var(--main-bg-c) calc(var(--wallpaper-sidebar-opacity, .72) * 72%), transparent) !important;
-  box-shadow: 0 18px 60px rgba(15, 23, 42, .14), inset 0 1px 0 rgba(255, 255, 255, .28);
-  backdrop-filter: blur(22px) saturate(145%);
-  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  background-color: color-mix(in srgb, var(--main-bg-c) calc(var(--wallpaper-sidebar-opacity, .45) * 78%), transparent) !important;
+  box-shadow: 0 18px 60px rgba(15, 23, 42, .12), inset 0 1px 0 rgba(255, 255, 255, .3);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
 }
 
 .search {
   background-color: color-mix(in srgb, var(--main-bg-c) calc(var(--wallpaper-input-opacity, .6) * 100%), transparent) !important;
-  border: 1px solid color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 14%, transparent);
   border-radius: 10px;
   backdrop-filter: blur(10px);
 }

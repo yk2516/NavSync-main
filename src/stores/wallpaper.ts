@@ -4,7 +4,9 @@ const STORAGE_KEY_ADMIN = 'wallpaper_admin'
 const STORAGE_KEY_VIEWER = 'wallpaper_viewer'
 
 const SKINS: Record<string, { label: string; background: string }> = {
-  default: { label: '默认', background: 'var(--bg-c)' },
+  // default 不设背景：交给 html 的主题底色（--bg-c / 暗色 --dark-bg-c），
+  // 否则暗色模式下会被这里的亮色写死，且不透明背景会盖住壁纸层。
+  default: { label: '默认', background: 'none' },
   deepBlue: { label: '沉静蓝', background: 'linear-gradient(135deg, #111827 0%, #1e293b 100%)' },
   polarGreen: { label: '极光青', background: 'linear-gradient(135deg, #0f2a2e 0%, #173b3b 100%)' },
   starPurple: { label: '星云紫', background: 'linear-gradient(135deg, #211a34 0%, #3b285f 100%)' },
@@ -26,7 +28,7 @@ const DEFAULTS: WallpaperSettings = {
   glass: 'classic',
   wallpaperOpacity: 48,
   wallpaperBlur: 0,
-  sidebarOpacity: 72,
+  sidebarOpacity: 45,
   inputOpacity: 60,
   popupOpacity: 40,
   autoDim: true,
