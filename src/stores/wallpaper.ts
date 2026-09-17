@@ -168,6 +168,8 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     panelVisible,
     isAdmin,
     update,
+    // 供 App.vue 在启动时把壁纸变量注入 DOM；此前遗漏导出会导致 setup 抛错、整页白屏
+    apply,
     setSkin,
     setImage,
     setGradient,
