@@ -47,7 +47,7 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
     return {
       ...DEFAULTS,
       ...parsed,
-      recentImages: Array.isArray(parsed.recentImages) ? parsed.recentImages.slice(0, 6) : [],
+      recentImages: Array.isArray(parsed.recentImages) ? parsed.recentImages.slice(0, 4) : [],
     }
   }
   catch {
@@ -76,7 +76,9 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
       localStorage.setItem(storageKey(isAdmin.value), JSON.stringify(settings.value))
     }
     catch {
-      // 图片超出 localStorage 配额时保留当前会话的壁纸，不阻断页面
+      // 图片超出 localStorage 配额：当前会话仍可用，但刷新后会丢失。
+      // 不阻断页面，只留一条线索便于排查。
+      console.warn('[wallpaper] 壁纸保存失败，可能图片过大超出 localStorage 配额')
     }
   }
 
@@ -122,7 +124,7 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
   function setImage(image: string, source: 'local' | 'url' = 'local') {
     update({ source, image: source === 'local' ? image : '', imageUrl: source === 'url' ? image : '', gradient: '' })
     if (image && source === 'local') {
-      const recentImages = [image, ...settings.value.recentImages.filter(item => item !== image)].slice(0, 6)
+      const recentImages = [image, ...settings.value.recentImages.filter(item => item !== image)].slice(0, 4)
       update({ recentImages })
     }
   }

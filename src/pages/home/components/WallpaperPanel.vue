@@ -30,9 +30,10 @@ function readImage(file: File) {
     const source = String(reader.result || '')
     const image = new Image()
     image.onload = () => {
-      // 压缩到适合壁纸的尺寸，避免 localStorage 因原图过大而无法保存
-      const maxWidth = 1920
-      const maxHeight = 1200
+      // 压缩到适合壁纸的尺寸。localStorage 通常只有 5MB 配额，且「最近使用」
+      // 会额外存多张，尺寸/质量放太宽会导致写入静默失败、刷新后壁纸丢失。
+      const maxWidth = 1600
+      const maxHeight = 1000
       const scale = Math.min(1, maxWidth / image.width, maxHeight / image.height)
       const canvas = document.createElement('canvas')
       canvas.width = Math.max(1, Math.round(image.width * scale))
@@ -43,7 +44,7 @@ function readImage(file: File) {
         return
       }
       context.drawImage(image, 0, 0, canvas.width, canvas.height)
-      wallpaperStore.setImage(canvas.toDataURL('image/jpeg', 0.86), 'local')
+      wallpaperStore.setImage(canvas.toDataURL('image/jpeg', 0.82), 'local')
     }
     image.onerror = () => {
       imageError.value = '图片无法读取'
