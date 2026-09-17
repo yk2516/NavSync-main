@@ -56,18 +56,43 @@ body::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
+  position: relative;
+  padding: 6px;
   border: 0;
-  background: transparent;
+  border-radius: 8px;
+  /* 不要在这里写 background-color：图标预设用 `background-color: currentColor` 配合 mask
+   * 来画图标，自身写 background 会把 currentColor 顶掉，mask 就只剩透明 → 图标消失。
+   * 半透明底交给 ::before（z-index:-1 沉到图标下方）。 */
   color: inherit;
   cursor: pointer;
-  opacity: .72;
+  opacity: .9;
   transition: opacity .2s, color .2s;
+}
+
+.header-icon-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: color-mix(in srgb, var(--main-bg-c) 34%, transparent);
+  z-index: -1;
+  pointer-events: none;
+  transition: background-color .2s;
 }
 
 .header-icon-button:hover {
   color: var(--wallpaper-accent, var(--primary-c));
   opacity: 1;
+}
+
+.header-icon-button:hover::before {
+  background-color: color-mix(in srgb, var(--main-bg-c) 64%, transparent);
+}
+
+/* 头部仅桌面显示的项：左上角 logo 与右上角壁纸按钮。
+ * 移动端只保留设置齿轮，这两项隐藏，避免小屏挤成一团。 */
+.header-desktop-only {
+  display: inline-flex;
 }
 
 .search-sel {
@@ -112,6 +137,16 @@ body::-webkit-scrollbar {
     margin: 0;
     padding: 16px;
     border-radius: 0;
+  }
+
+  /* 移动端隐藏 logo / 壁纸按钮后，头部留白要跟着收，否则空出一大块 */
+  .header-desktop-only {
+    display: none !important;
+  }
+
+  .main-header {
+    padding-top: 12px;
+    padding-bottom: 12px;
   }
 }
 
