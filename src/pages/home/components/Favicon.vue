@@ -62,6 +62,7 @@ const imgStyle = computed(() => {
       :src="safeFaviconUrl(site.favicon) || getFaviconUrl(site.url)"
       decoding="async"
       loading="lazy"
+      referrerpolicy="no-referrer"
       :style="imgStyle"
       @error="handleFaviconError(site)"
       @load="imgLoaded = true"

@@ -1,6 +1,6 @@
 # NavSync
 
-一款极简的网址导航工具，基于 [COME COME](https://github.com/hellojuantu/comecome) 改进，支持云端同步，部署在 Cloudflare Pages，采用 **favicon 代理 + KV 缓存** 架构。
+一款极简的网址导航工具，基于 [COME COME](https://github.com/hellojuantu/comecome) 改进，支持云端同步，部署在 Cloudflare Pages，**站点图标直接走 0x3**（无需代理、KV、环境变量）。
 
 ![演示截图](./1.jpg)
 
@@ -98,14 +98,15 @@ GitHub Token 用于后端代你操作 Gist（创建、读取、更新）。**仅
 > 也可以直接点击这个快捷链接，会自动帮你选好 `gist` 权限：
 > [创建 Token（预设 gist 权限）](https://github.com/settings/tokens/new?description=NavSync%20Cloud%20Sync&scopes=gist)
 
-### 第三步：创建 KV 命名空间
+### 第三步：（已移除）创建 KV 命名空间
 
-favicon 缓存需要用到 Cloudflare KV，提前创建好，后续绑定时直接选用。
+2026-09-18 改造：站点图标从「CF Function 代理 + KV 缓存」改成**浏览器直接 `<img>` 调 0x3**，
+不再需要 KV 命名空间。如果你之前为旧版本创建过 `navsync-favicon` 命名空间，**可以直接删掉**；
+旧的 `FAVICON_KV` 绑定也建议从 Pages 项目里解绑（Settings → Bindings → 删除），不会报错但多余。
 
-1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com)（右上角可切换语言）
-2. 左侧菜单进入 **Workers 和 Pages**（Workers & Pages）→ **KV**
-3. 点击 **创建命名空间**（Create namespace）
-4. **命名空间名称填 `navsync-favicon`**（建议照填，方便后续对照；也可以取其他名字，不影响功能）
+> 0x3 在国内可直接访问，没有 CORS 限制（`<img>` 标签不受 CORS 约束）。
+> 代价是 0x3 只返 **32×32** PNG，2 倍屏上图标比之前的 128px 源略糊。
+> **速度优先于像素清晰度是这次改造的取舍**。
 
 ### 第四步：在 Cloudflare Pages 部署
 
@@ -118,7 +119,7 @@ favicon 缓存需要用到 Cloudflare KV，提前创建好，后续绑定时直�
    - **框架预设**（Framework preset）：`Vue`
    - **构建命令**（Build command）：`npm run build`
    - **构建输出目录**（Build output directory）：`dist`
-5. 展开底部的 **高级**（Advanced）设置，配置以下变量。共 5 项，分两类：
+5. 展开底部的 **高级**（Advanced）设置，配置以下变量。**只剩两个环境变量**（favicon 已迁出，无需 KV 绑定）：
 
    **环境变量**（Environment variables）：
 
@@ -126,28 +127,9 @@ favicon 缓存需要用到 Cloudflare KV，提前创建好，后续绑定时直�
    | --- | --- | --- | --- |
    | `GITHUB_TOKEN` | **是** | 第二步获取的 GitHub Token，仅需 `gist` 权限 | `ghp_xxxxxxxxxxxx` |
    | `CLOUD_PASSWORD` | **强烈建议** | 管理口令。同时用于云端同步鉴权和管理入口验证；留空则任何人都能编辑和同步 | `myStr0ngP@ssw0rd` |
-   | `FAVICON_SOURCE` | 否 | favicon 第三方图标源：`google`（默认）/ `duckduckgo` / `0x3` | `google` |
-   | `FAVICON_TTL` | 否 | favicon 缓存时长（秒），范围 `60` ~ `2592000`，默认 30 天 | `2592000` |
 
-   **KV 绑定**（Bindings，不是环境变量）：
-
-   | 变量名（binding） | 类型 | 必填 | KV 命名空间 | 说明 |
-   | --- | --- | --- | --- | --- |
-   | `FAVICON_KV` | KV 命名空间 | **是** | `navsync-favicon`（第三步创建的） | favicon 代理缓存，变量名必须填 `FAVICON_KV` |
-
-   > 必填的只有两个：`GITHUB_TOKEN`（云端同步必需）和 `FAVICON_KV`（favicon 代理必需）。
+   > 必填的只有 `GITHUB_TOKEN`。
    > `CLOUD_PASSWORD` 虽然技术上可选，但**强烈建议设置**——否则任何人都能进入设置页修改你的导航配置。
-
-6. 绑定 KV 命名空间（`FAVICON_KV`）：
-   - 在创建向导的 **绑定**（Bindings）区域点击 **添加绑定**（Add binding）
-     （若创建时找不到该区域，部署完成后进入 **设置 → 绑定**，Settings → Bindings）
-   - **类型**（Type）选 **KV 命名空间**（KV namespace）
-   - **变量名称**（Variable name）填 **`FAVICON_KV`**（必须与上表一致）
-   - **KV 命名空间** 选第三步创建的 **`navsync-favicon`**
-   - 点保存
-   - 若是在部署完成后再补绑定，保存后需到 **部署**（Deployments）页面点 **重新部署**（Redeploy）才会生效
-
-7. 点击 **保存并部署**（Save and Deploy）
 
 ### 第五步：等待部署完成
 
@@ -178,12 +160,7 @@ Cloudflare 会自动拉取代码、安装依赖、构建并部署。通常 2-3 �
 | --- | --- |
 | `GITHUB_TOKEN` 在哪设置？ | Pages 项目 → **设置 → 环境变量**（Settings → Environment variables）→ 添加；或部署向导的 **高级**（Advanced）区域 |
 | `CLOUD_PASSWORD` 不设置会怎样？ | 不启用口令保护，任何人都能同步你的配置、进入设置页。**强烈建议设置** |
-| `FAVICON_KV` 为什么不在环境变量里？ | 它是 **KV 命名空间绑定**（KV namespace binding），需在 **设置 → 绑定**（Settings → Bindings）添加，属于另一类配置 |
-| KV 命名空间叫什么？ | 建议命名 `navsync-favicon`，也可以取其他名字，只要绑定时选对即可 |
-| 绑定时变量名填什么？ | **必须填 `FAVICON_KV`**，这是代码中读取的名称，不能改 |
-| 补绑 KV 后不生效？ | 重新部署一次即可：**部署 → 重新部署**（Deployments → Redeploy） |
-| `FAVICON_SOURCE` 能填什么？ | `google`（默认）/ `duckduckgo` / `0x3`，三选一；**不设置时默认 `google`** |
-| `FAVICON_TTL` 范围？ | `60` ~ `2592000` 秒，超出会自动钳制到合法范围 |
+| 站点图标怎么来的？ | 浏览器直接 `<img>` 加载 `https://0x3.com/icon?host={域名}`。无需任何 Cloudflare 配置；旧版本里若还留着 `FAVICON_KV` 绑定，可以安全删掉 |
 
 ---
 

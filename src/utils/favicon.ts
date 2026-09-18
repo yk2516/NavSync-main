@@ -1,17 +1,16 @@
-// 图标获取统一走本站 Pages Functions 代理（/favicon/{domain}.png），
-// 由后端请求第三方源（DuckDuckGo / 0x3 / Google）并写入 KV 缓存，
-// 避免浏览器直连第三方接口的跨域与稳定性问题。
-const FAVICON_API = '/favicon/'
-
 /**
- * 附在 URL 上的尺寸提示。
+ * 站点图标 URL 构造。
  *
- * 真正决定上游请求尺寸的是 `functions/favicon/[id].ts` 里的 `FAVICON_SIZE`
- * （后端按该值固定请求，本参数只用于让浏览器缓存随尺寸变更而失效）。
- * 两者必须保持一致，改一处记得改另一处。
+ * 2026-09-18 改造：浏览器直接 `<img>` 加载 `https://0x3.com/icon?host={domain}`，
+ * 不再走本站 `/favicon/[id].png` Pages Function 代理。理由：
+ * 1) 旧代理每次冷访问 1~2s，是首屏第二大成本（仅次于 JS 资源数 × RTT）；
+ * 2) 0x3 没有 CORS 限制（`<img>` 不受 CORS 约束），浏览器可直连；
+ * 3) 0x3 自身响应头 `Cache-Control: public, max-age=2592000`（30 天）+ 浏览器缓存，
+ *    二次访问直接命中，链路与代理的 KV 缓存几乎等效但少一跳。
+ *
+ * 已知代价：0x3 只返 **32×32** PNG（`size` 参数无效）。在 2 倍屏上图标会被放大 ~3 倍，
+ * 比改造前的 128px 源要糊一些。**速度优先于像素清晰度是这次改造的取舍**。
  */
-const FAVICON_ASSET_SIZE = 128
-
 function getDomainName(url: string) {
   let domain = url.replace(/(^\w+:|^)\/\//, '')
   domain = domain.replace(/^www\./, '')
@@ -25,13 +24,10 @@ function getDomainName(url: string) {
 }
 
 export function getFaviconUrl(url: string) {
-  const paramsUrl = getDomainName(url)
-  if (paramsUrl == null)
+  const domain = getDomainName(url)
+  if (domain == null)
     return ''
 
-  // 所有域名统一请求其自身 Favicon，不再用项目内置的通用图标覆盖真实站点图标。
-  // 后端向上游请求 128x128 资源；前端按 --wallpaper-icon-size 渲染（默认 64 × 112% ≈ 71.7px，
-  // 可调范围 40%~140%，即 25.6px ~ 89.6px），2 倍屏下最高需要 179 个设备像素。
-  // 这样新增网站后每个站点都会使用自己域名的 Favicon，而不是共用默认图标。
-  return `${FAVICON_API + paramsUrl}.png?size=${FAVICON_ASSET_SIZE}`
+  // 直接调 0x3；0x3 无 CORS，可作为 `<img src>` 跨域加载。
+  return `https://0x3.com/icon?host=${domain}`
 }

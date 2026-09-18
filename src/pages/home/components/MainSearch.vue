@@ -339,7 +339,7 @@ watch(manageVisible, (visible) => {
           @click="toggleEngineBar"
         >
           <img
-            decoding="async" loading="lazy" :src="_getFavicon(engines[currentIndex] || engines[0])" :style="iconStyle"
+            decoding="async" loading="lazy" referrerpolicy="no-referrer" :src="_getFavicon(engines[currentIndex] || engines[0])" :style="iconStyle"
             circle h-26 w-26 class="engine-current"
           >
         </button>
@@ -390,7 +390,7 @@ watch(manageVisible, (visible) => {
             @click="selectEngine(i)"
             @contextmenu="handleEngineContextMenu($event, engine.enName)"
           >
-            <img decoding="async" loading="lazy" :src="_getFavicon(engine)" :style="iconStyle" alt="">
+            <img decoding="async" loading="lazy" referrerpolicy="no-referrer" :src="_getFavicon(engine)" :style="iconStyle" alt="">
           </button>
           <button type="button" class="engine-item engine-item--add" title="添加或管理搜索引擎" aria-label="添加或管理搜索引擎" @click="openAddEngine">
             <div i-carbon:add />
@@ -437,7 +437,7 @@ watch(manageVisible, (visible) => {
             v-for="item in engineStore.custom" :key="item.enName" class="engine-form__row"
             :class="{ 'engine-form__row--editing': item.enName === editingEnName }"
           >
-            <img decoding="async" :src="_getFavicon(item)" alt="">
+            <img decoding="async" referrerpolicy="no-referrer" :src="_getFavicon(item)" alt="">
             <span :title="item.url">{{ item.name }}</span>
             <template v-if="pendingDelete === item.enName">
               <em class="engine-form__confirm">确定删除？</em>

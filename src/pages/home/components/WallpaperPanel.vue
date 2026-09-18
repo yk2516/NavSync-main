@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import SettingSelection from './SettingSelection.vue'
 import { wallpaperSkins } from '@/stores/wallpaper'
-import { WALLPAPER_SOURCES, forgetWallpaperDirectory, isFolderPickerSupported, listImagesInDirectory, pickWallpaperDirectory } from '@/utils'
+import { WALLPAPER_SOURCES, forgetWallpaperDirectory, iconStyleList, isFolderPickerSupported, listImagesInDirectory, pickWallpaperDirectory, siteStyleList, themeList } from '@/utils'
 
 const wallpaperStore = useWallpaperStore()
+const settingStore = useSettingStore()
 const fileInput = ref<HTMLInputElement>()
 const activeSource = ref<'local' | 'url' | 'gradient'>('local')
 const imageUrlInput = ref('')
@@ -434,6 +436,47 @@ function resetLayout() {
             清除壁纸
           </button>
         </section>
+
+        <!--
+          偏好：主题风格 / 图标风格 / 色彩模式。
+          这三个之前放在「/setting」里的 2×2 下拉网格，2026-09-18 改造搬到此处。
+          搜索引擎依然走 MainSearch 顶部的引擎条 +「+」按钮，不再列在这里。
+          这些写入 settingStore（不是 wallpaperStore）—— 它们控制的是全局观感而非壁纸本身。
+        -->
+        <section class="wallpaper-section">
+          <div class="wallpaper-title">
+            偏好
+          </div>
+          <div class="preference-grid">
+            <SettingSelection
+              v-model="settingStore.settings.theme"
+              title="主题风格"
+              :options="themeList"
+              label-field="name"
+              value-field="enName"
+              :on-update-value="(theme: string) => toggleTheme(theme)"
+            />
+            <SettingSelection
+              v-model="settingStore.settings.iconStyle"
+              title="图标风格"
+              :options="iconStyleList"
+              label-field="name"
+              value-field="enName"
+              :on-update-value="(enName: string) => settingStore.setSettings({ iconStyle: enName })"
+            />
+            <SettingSelection
+              v-model="settingStore.settings.siteStyle"
+              title="色彩模式"
+              :options="siteStyleList"
+              label-field="name"
+              value-field="enName"
+              :on-update-value="(enName: string) => {
+                settingStore.setSettings({ siteStyle: enName })
+                toggleSiteSytle()
+              }"
+            />
+          </div>
+        </section>
       </div>
 
       <template #footer>
@@ -499,6 +542,8 @@ function resetLayout() {
 .sliders input[type='range'] { width: 100%; accent-color: var(--wallpaper-accent, var(--primary-c)); }
 .sliders b { text-align: right; font-weight: 400; opacity: .72; }
 .sliders .checkbox-label { display: flex; grid-template-columns: unset; justify-content: flex-start; }
+/* 偏好 section：三个下拉纵向堆叠，宽度跟面板一致 */
+.preference-grid { display: grid; gap: 14px; }
 .advanced-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
 .advanced-tabs button { padding: 5px 10px; border-radius: 6px; }
 /* 图标形状：三个等宽按钮 */

@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import SettingSelection from './SettingSelection.vue'
 import ResetModal from './ResetModal.vue'
 import CloudSync from './CloudSync.vue'
 import AdminGate from './AdminGate.vue'
 import type { Category, Settings } from '@/types'
-import type { ThemeSetting } from '@/utils'
-import { iconStyleList, searchList, siteStyleList, themeList } from '@/utils'
 import preset from '@/preset.json'
 import router from '@/router'
 import { toggleSiteSytle } from '@/composables/dark'
@@ -16,31 +13,9 @@ const settingStore = useSettingStore()
 const renderStore = useRenderStore()
 const adminStore = useAdminStore()
 
-/* ThemeSetting */
-function renderThemeLabel(option: ThemeSetting): VNode {
-  // 兜底：n-select 在当前值找不到匹配项时会合成一个 `{label, value}` 对象传进来，
-  // 直接取 `.value` 会抛 TypeError，主题选择器会被渲染错误整块吞掉。
-  // 正常情况下 `pickKnownSettings()` 已经拦住了脏值，这里只是最后一道保险。
-  const currentTheme = themeList.find(item => item.enName === option?.enName) ?? themeList[0]
-  const buttonColor = currentTheme!.value.buttonC
-  const darkConfig = isDark.value ? { style: { color: '#ffffff' } } : {}
-  return h('div', { class: 'flex items-center gap-x-8' },
-    [
-      h('div', { class: 'w-16 h-16 circle border-1 border-fff', style: { backgroundColor: buttonColor } }),
-      h('div', darkConfig, option.name),
-    ],
-  )
-}
+/* ThemeSetting 兜底渲染已移除：原「主题风格」下拉搬到壁纸面板，详见 WallpaperPanel.vue */
 
-/* render color */
-function renderColor(option: { name: string }): VNode {
-  const darkConfig = isDark.value ? { style: { color: '#ffffff' } } : {}
-  return h('div', { class: 'flex items-center gap-x-8' },
-    [
-      h('div', darkConfig, option.name),
-    ],
-  )
-}
+/* render color 兜底渲染已移除：原 3 个下拉搬到壁纸面板，WallpaperPanel 用纯文本标签够用 */
 
 /* import and export */
 interface CacheData {
@@ -137,47 +112,12 @@ function exitAdmin() {
   <AdminGate v-if="adminStore.isGate" />
 
   <section v-else-if="settingStore.isSetting" px="md:60 lg:120">
-    <div grid grid-cols-2 gap-24 lg:grid-cols-2 md:grid-cols-2>
-      <SettingSelection
-        v-model="settingStore.settings.theme"
-        title="主题风格"
-        :options="themeList"
-        :render-label="renderThemeLabel"
-        label-field="name"
-        value-field="enName"
-        :on-update-value="(theme: string) => toggleTheme(theme)"
-      />
-      <SettingSelection
-        v-model="settingStore.settings.search"
-        title="搜索引擎"
-        :options="searchList"
-        :render-label="renderColor"
-        label-field="name"
-        value-field="enName"
-        :on-update-value="(enName: string) => settingStore.setSettings({ search: enName })"
-      />
-      <SettingSelection
-        v-model="settingStore.settings.iconStyle"
-        title="图标风格"
-        :options="iconStyleList"
-        :render-label="renderColor"
-        label-field="name"
-        value-field="enName"
-        :on-update-value="(enName: string) => settingStore.setSettings({ iconStyle: enName })"
-      />
-      <SettingSelection
-        v-model="settingStore.settings.siteStyle"
-        title="色彩模式"
-        :options="siteStyleList"
-        :render-label="renderColor"
-        label-field="name"
-        value-field="enName"
-        :on-update-value="(enName: string) => {
-          settingStore.setSettings({ siteStyle: enName })
-          toggleSiteSytle()
-        }"
-      />
-    </div>
+    <!--
+      原「主题风格 / 搜索引擎 / 图标风格 / 色彩模式」2×2 下拉网格已移除。
+      搜索引擎改在 MainSearch 的「+」按钮 / 引擎条里换；
+      主题风格 / 图标风格 / 色彩模式搬到壁纸面板的「偏好」section 里了
+      （WallpaperPanel.vue）。这里只剩云端同步与数据管理。
+    -->
     <!-- Cloud Sync Section -->
     <div mt-24>
       <div mb-10 text-14 font-bold>
