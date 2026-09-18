@@ -352,3 +352,98 @@ button,
 .site--setting:hover {
   background-color: var(--site-hover-c);
 }
+
+/* 一级分类标签（仿 inftab 的下划线样式）。
+ *
+ * 放这里而不是组件 scoped：浏览态（`SiteNavBar.vue` 的纯列表）和编辑态
+ * （`SiteNavBarEdit.vue` 的 vuedraggable 列表）是**两个组件**，要共用同一套外观。
+ * 拆成两个组件是为了把 vuedraggable（约 100KB）从首屏关键路径上摘掉 ——
+ * 访客只看不编辑，不该替站长下载拖拽库。 */
+.cate-nav {
+  padding-bottom: 12px;
+}
+
+.cate-nav__list {
+  display: flex;
+  gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: none;
+  padding: 4px 2px;
+}
+
+.cate-nav__list::-webkit-scrollbar {
+  display: none;
+}
+
+/* 纯文字 + 强调色下划线，选中态靠「下划线 + 加深加粗」表达。
+ * 原先的实心胶囊底色很重，和下面的图标网格抢视觉。 */
+.cate-tab {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 7px 14px 10px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  color: var(--text-c);
+  opacity: .68;
+  background-color: transparent;
+  transition: opacity .2s ease, color .2s ease, background-color .2s ease;
+}
+
+.cate-tab::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  left: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background-color: var(--wallpaper-accent, var(--primary-c));
+  transform: scaleX(0);
+  transition: transform .24s cubic-bezier(.22, .61, .36, 1);
+}
+
+.cate-tab:hover {
+  opacity: .92;
+}
+
+.cate-tab--active {
+  font-weight: 600;
+  opacity: 1;
+}
+
+.cate-tab--active::after {
+  transform: scaleX(1);
+}
+
+/* 编辑态：给分类标签一点底色，让站长看出它是可拖拽的块 */
+.cate-tab.site--setting {
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background-color: color-mix(in srgb, var(--main-bg-c) 38%, transparent);
+}
+
+.cate-tab.site--select {
+  color: var(--wallpaper-accent, var(--primary-c));
+  background-color: color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 20%, transparent);
+}
+
+@media screen and (max-width: 640px) {
+  .cate-nav {
+    padding-bottom: 10px;
+  }
+
+  .cate-tab {
+    padding: 6px 11px 9px;
+    font-size: 13px;
+  }
+
+  .cate-tab::after {
+    right: 9px;
+    left: 9px;
+  }
+}
