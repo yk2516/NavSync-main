@@ -1,7 +1,11 @@
 import type { WallpaperSettings } from '@/types'
+import { buildWallpaperUrl } from '@/utils/wallpaperSource'
 
 const STORAGE_KEY_ADMIN = 'wallpaper_admin'
 const STORAGE_KEY_VIEWER = 'wallpaper_viewer'
+
+/** 图标基准尺寸：面板里 100% 对应 64px，与站点卡片原始尺寸一致 */
+export const ICON_BASE_SIZE = 64
 
 const SKINS: Record<string, { label: string; background: string }> = {
   // default 不设背景：交给 html 的主题底色（--bg-c / 暗色 --dark-bg-c），
@@ -26,12 +30,17 @@ const DEFAULTS: WallpaperSettings = {
   gradient: '',
   recentImages: [],
   glass: 'classic',
-  wallpaperOpacity: 48,
+  wallpaperOpacity: 60,
   wallpaperBlur: 0,
-  sidebarOpacity: 45,
   inputOpacity: 60,
-  popupOpacity: 40,
+  popupOpacity: 90,
   autoDim: true,
+  iconRadius: 26,
+  iconOpacity: 100,
+  iconSize: 100,
+  imageSource: 'picsum',
+  customSource: '',
+  folderName: '',
 }
 
 function storageKey(isAdmin: boolean) {
@@ -47,6 +56,12 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
     return {
       ...DEFAULTS,
       ...parsed,
+      // 文件夹壁纸体积不可控，只留在内存里，刷新后由小风车重新抽取
+      image: parsed.source === 'folder' ? '' : (parsed.image || ''),
+      source: parsed.source === 'folder' ? 'none' : (parsed.source || 'none'),
+      // 旧版本的「弹窗透明度」默认 40，但当时没有任何 CSS 消费它、从未生效。
+      // 现在真正接上了，40% 不透明的弹窗读不清，迁移到新的可读默认值。
+      popupOpacity: parsed.popupOpacity === 40 ? DEFAULTS.popupOpacity : (parsed.popupOpacity ?? DEFAULTS.popupOpacity),
       recentImages: Array.isArray(parsed.recentImages) ? parsed.recentImages.slice(0, 4) : [],
     }
   }
@@ -59,21 +74,168 @@ function safeUrl(url: string) {
   return url.replace(/"/g, '\\"').replace(/\n/g, '')
 }
 
+function clamp(value: number, min: number, max: number, fallback: number) {
+  const n = Number(value)
+  if (!Number.isFinite(n))
+    return fallback
+  return Math.max(min, Math.min(max, n))
+}
+
+// ---------- 壁纸明暗自适应 ----------
+//
+// 去掉内容区遮罩后，文字直接压在壁纸上：深色壁纸配深色文字等于看不见。
+// 这里采样壁纸的平均亮度，给 html 打上 data-wallpaper-tone，由 CSS 翻转文字色。
+
+type WallpaperTone = 'theme' | 'dark' | 'light'
+
+function relativeLuminance(r: number, g: number, b: number) {
+  const f = (v: number) => {
+    const x = v / 255
+    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+}
+
+function parseColor(value: string): [number, number, number] | undefined {
+  const hex = value.trim().match(/^#([0-9a-f]{3,8})$/i)
+  if (hex) {
+    let h = hex[1]
+    if (h.length === 3)
+      h = h.split('').map(c => c + c).join('')
+    if (h.length < 6)
+      return undefined
+    return [Number.parseInt(h.slice(0, 2), 16), Number.parseInt(h.slice(2, 4), 16), Number.parseInt(h.slice(4, 6), 16)]
+  }
+  const rgb = value.match(/rgba?\(([^)]+)\)/i)
+  if (rgb) {
+    const parts = rgb[1].split(/[,/\s]+/).filter(Boolean).map(Number)
+    if (parts.length >= 3 && parts.slice(0, 3).every(Number.isFinite))
+      return [parts[0], parts[1], parts[2]]
+  }
+  return undefined
+}
+
+/** 渐变壁纸：取所有色标的平均亮度 */
+function gradientLuminance(gradient: string): number | undefined {
+  const colors = gradient.match(/#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)/g)
+  if (!colors?.length)
+    return undefined
+  let sum = 0
+  let count = 0
+  for (const color of colors) {
+    const rgb = parseColor(color)
+    if (!rgb)
+      continue
+    sum += relativeLuminance(...rgb)
+    count++
+  }
+  return count ? sum / count : undefined
+}
+
+/** 图片壁纸：缩到 24x24 画布取平均亮度；跨域图片画布被污染时返回 undefined */
+function imageLuminance(url: string): Promise<number | undefined> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      try {
+        const size = 24
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          resolve(undefined)
+          return
+        }
+        ctx.drawImage(img, 0, 0, size, size)
+        const { data } = ctx.getImageData(0, 0, size, size)
+        let sum = 0
+        let weight = 0
+        for (let i = 0; i < data.length; i += 4) {
+          const alpha = data[i + 3] / 255
+          if (alpha < 0.2)
+            continue
+          sum += relativeLuminance(data[i], data[i + 1], data[i + 2]) * alpha
+          weight += alpha
+        }
+        resolve(weight ? sum / weight : undefined)
+      }
+      catch {
+        // 跨域图片会污染画布，读不到像素
+        resolve(undefined)
+      }
+    }
+    img.onerror = () => resolve(undefined)
+    img.src = url
+  })
+}
+
 export const wallpaperSkins = SKINS
 
 export const useWallpaperStore = defineStore('wallpaper', () => {
   const adminStore = useAdminStore()
   const settings = ref<WallpaperSettings>(loadSettings(adminStore.isAdmin))
   const panelVisible = ref(false)
+  /** 已授权文件夹里的图片（内存态，不入 localStorage） */
+  const folderImages = ref<{ name: string; url: string }[]>([])
+  const folderBusy = ref(false)
   let skipPersist = false
+  let lastToneKey = ''
+  let toneToken = 0
 
   const isAdmin = computed(() => adminStore.isAdmin)
+
+  function setTone(tone: WallpaperTone) {
+    if (typeof document === 'undefined')
+      return
+    document.documentElement.dataset.wallpaperTone = tone
+  }
+
+  /**
+   * 按当前壁纸更新文字色调。
+   * 用 key 去重，避免拖滑块时每次都重新解码整张图。
+   */
+  function syncTone(image: string, gradient: string) {
+    const autoDim = settings.value.autoDim
+    const key = `${autoDim ? 'on' : 'off'}|${image ? `img:${image.length}:${image.slice(-48)}` : (gradient ? `g:${gradient}` : 'none')}`
+    if (key === lastToneKey)
+      return
+    lastToneKey = key
+
+    if (!autoDim) {
+      setTone('theme')
+      return
+    }
+    if (!image && !gradient) {
+      setTone('theme')
+      return
+    }
+
+    const token = ++toneToken
+    if (image) {
+      imageLuminance(image).then((lum) => {
+        if (token !== toneToken)
+          return
+        // 读不到像素（跨域污染）时按深色处理：浅色文字 + 投影在两种底上都能看
+        setTone(lum === undefined ? 'dark' : (lum < 0.42 ? 'dark' : 'light'))
+      })
+      return
+    }
+
+    const lum = gradientLuminance(gradient)
+    setTone(lum === undefined ? 'dark' : (lum < 0.42 ? 'dark' : 'light'))
+  }
 
   function persist() {
     if (skipPersist)
       return
     try {
-      localStorage.setItem(storageKey(isAdmin.value), JSON.stringify(settings.value))
+      const snapshot = { ...settings.value }
+      // 文件夹壁纸是 objectURL，刷新即失效，持久化没有意义还会写爆配额
+      if (snapshot.source === 'folder')
+        snapshot.image = ''
+      localStorage.setItem(storageKey(isAdmin.value), JSON.stringify(snapshot))
     }
     catch {
       // 图片超出 localStorage 配额：当前会话仍可用，但刷新后会丢失。
@@ -93,22 +255,30 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     let image = ''
     if (current.source === 'local' && current.image)
       image = current.image
+    else if (current.source === 'folder' && current.image)
+      image = current.image
     else if (current.source === 'url' && current.imageUrl)
+      image = current.imageUrl
+    else if (current.source === 'source' && current.imageUrl)
       image = current.imageUrl
 
     root.style.setProperty('--wallpaper-skin', skin.background)
     root.style.setProperty('--wallpaper-accent', current.accent || '#0071e3')
-    root.style.setProperty('--wallpaper-opacity', String(Math.max(0, Math.min(100, current.wallpaperOpacity)) / 100))
-    root.style.setProperty('--wallpaper-blur', `${Math.max(0, Math.min(32, current.wallpaperBlur))}px`)
-    root.style.setProperty('--wallpaper-sidebar-opacity', String(Math.max(0, Math.min(100, current.sidebarOpacity)) / 100))
-    root.style.setProperty('--wallpaper-input-opacity', String(Math.max(0, Math.min(100, current.inputOpacity)) / 100))
-    root.style.setProperty('--wallpaper-popup-opacity', String(Math.max(0, Math.min(100, current.popupOpacity)) / 100))
+    root.style.setProperty('--wallpaper-opacity', String(clamp(current.wallpaperOpacity, 0, 100, 60) / 100))
+    root.style.setProperty('--wallpaper-blur', `${clamp(current.wallpaperBlur, 0, 32, 0)}px`)
+    root.style.setProperty('--wallpaper-input-opacity', String(clamp(current.inputOpacity, 0, 100, 60) / 100))
+    root.style.setProperty('--wallpaper-popup-opacity', String(clamp(current.popupOpacity, 0, 100, 90) / 100))
     root.style.setProperty('--wallpaper-image', image ? `url("${safeUrl(image)}")` : 'none')
     root.style.setProperty('--wallpaper-gradient', current.gradient || 'none')
+    // 图标外观（站点卡片）
+    root.style.setProperty('--wallpaper-icon-radius', `${clamp(current.iconRadius, 0, 50, 26)}%`)
+    root.style.setProperty('--wallpaper-icon-opacity', String(clamp(current.iconOpacity, 10, 100, 100) / 100))
+    root.style.setProperty('--wallpaper-icon-size', `${(ICON_BASE_SIZE * clamp(current.iconSize, 40, 140, 100) / 100).toFixed(1)}px`)
     root.dataset.wallpaperGlass = current.glass
     root.dataset.wallpaperSource = current.source
     root.dataset.wallpaperAutoDim = current.autoDim ? 'true' : 'false'
     body.style.setProperty('--primary-c', current.accent || '')
+    syncTone(image, current.source === 'gradient' ? current.gradient : '')
   }
 
   function update(patch: Partial<WallpaperSettings>) {
@@ -143,6 +313,57 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     apply()
   }
 
+  // ---------- 文件夹壁纸 ----------
+
+  /** 释放旧的 objectURL，避免反复选文件夹时内存泄漏 */
+  function releaseFolderImages() {
+    folderImages.value.forEach(item => URL.revokeObjectURL(item.url))
+    folderImages.value = []
+  }
+
+  function setFolderImages(files: File[], folderName: string) {
+    releaseFolderImages()
+    folderImages.value = files.map(file => ({ name: file.name, url: URL.createObjectURL(file) }))
+    update({ folderName })
+  }
+
+  function pickFolderImage(): string {
+    if (!folderImages.value.length)
+      return ''
+    const item = folderImages.value[Math.floor(Math.random() * folderImages.value.length)]
+    return item.url
+  }
+
+  function useFolderImage() {
+    const url = pickFolderImage()
+    if (!url)
+      return false
+    update({ source: 'folder', image: url, imageUrl: '', gradient: '' })
+    return true
+  }
+
+  // ---------- 壁纸源网站 ----------
+
+  function useSourceWallpaper() {
+    const url = buildWallpaperUrl(settings.value.imageSource, settings.value.customSource)
+    if (!url)
+      return false
+    update({ source: 'source', imageUrl: url, image: '', gradient: '' })
+    return true
+  }
+
+  /**
+   * 小风车：点一下换一张壁纸。
+   * 优先从已授权的文件夹里抽，其次从选定的壁纸源拉。
+   */
+  function shuffleWallpaper() {
+    if (folderImages.value.length && useFolderImage())
+      return 'folder'
+    if (useSourceWallpaper())
+      return 'source'
+    return 'none'
+  }
+
   function openPanel() {
     panelVisible.value = true
   }
@@ -171,6 +392,8 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     settings,
     panelVisible,
     isAdmin,
+    folderImages,
+    folderBusy,
     update,
     // 供 App.vue 在启动时把壁纸变量注入 DOM；此前遗漏导出会导致 setup 抛错、整页白屏
     apply,
@@ -181,5 +404,10 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     reset,
     openPanel,
     closePanel,
+    setFolderImages,
+    releaseFolderImages,
+    useFolderImage,
+    useSourceWallpaper,
+    shuffleWallpaper,
   }
 })

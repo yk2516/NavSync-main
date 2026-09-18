@@ -5,6 +5,7 @@ import MainSearch from './components/MainSearch.vue'
 import SiteContainer from './components/SiteContainer.vue'
 import MainSetting from './components/MainSetting.vue'
 import WallpaperPanel from './components/WallpaperPanel.vue'
+import WallpaperFan from './components/WallpaperFan.vue'
 import { toggleSiteSytle } from '@/composables/dark'
 
 defineOptions({
@@ -20,7 +21,8 @@ const viewerStore = useViewerStore()
 
 <template>
   <TheDoc dark:op-80>
-    <div my-6vh p-24 bg="$main-bg-c" dark="bg-$dark-main-bg-c" class="mobile-index" :class="{ no_select: settingStore.isSetting }">
+    <!-- 不再套半透明卡片：壁纸直接铺满整页，容器只负责内边距 -->
+    <div p-24 class="mobile-index" :class="{ no_select: settingStore.isSetting }">
       <MainHeader />
       <!-- 口令门模式（访客停在 /setting）下不渲染导航区，只留入口表单 -->
       <template v-if="!adminStore.isGate">
@@ -35,6 +37,8 @@ const viewerStore = useViewerStore()
       <MainSetting />
       <!-- 管理员和访客都可使用的本地壁纸面板 -->
       <WallpaperPanel />
+      <!-- 右下角小风车：点一下随机换一张壁纸 -->
+      <WallpaperFan v-if="!settingStore.isSetting && !adminStore.isGate" />
       <TheFooter v-if="!adminStore.isGate" />
     </div>
   </TheDoc>

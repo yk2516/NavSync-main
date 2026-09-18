@@ -56,10 +56,8 @@ const renderStore = useRenderStore()
             <span
               class="group__handle" :class="{
                 'cursor-pointer': settingStore.isSetting,
-                'group__header--setting': settingStore.isWhiteTheme,
-                'group__header--setting--colorful': !settingStore.isWhiteTheme,
                 'site--setting': settingStore.isSetting,
-              }" md="text-15" lg="text-15" shrink-0 whitespace-nowrap px-0 py-4 text-13 op-80 overflow-hidden ellipsis @click="handleGroupClick(i)"
+              }" shrink-0 whitespace-nowrap @click="handleGroupClick(i)"
             >
               {{ group.name }}
             </span>
@@ -160,27 +158,47 @@ const renderStore = useRenderStore()
   border-radius: 12px;
 }
 
-.group__header--setting {
-  background-color: var(--setting-group-bg-c);
+/* 二级分组标题：去掉原先的低对比色块，改成「强调色竖条 + 高对比文字 + 半透明胶囊底」，
+ * 在壁纸上也看得清，比之前的青色小字显眼。 */
+.group__handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
   color: var(--text-c);
-  margin: 0 2px;
-  padding: 4px;
-  border-radius: 2px;
+  background-color: color-mix(in srgb, var(--main-bg-c) 46%, transparent);
+  transition: background-color .2s ease, color .2s ease;
 }
 
-.group__header--setting--colorful {
-  background-color: var(--setting-group-bg-c);
-  color: var(--primary-c);
-  margin: 0 2px;
-  padding: 4px;
+.group__handle::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 3px;
+  height: 13px;
   border-radius: 2px;
+  background-color: var(--wallpaper-accent, var(--primary-c));
+}
+
+.group__handle:hover {
+  background-color: color-mix(in srgb, var(--main-bg-c) 72%, transparent);
+}
+
+.group__handle.site--setting {
+  border-radius: 8px;
 }
 
 .group__header--all {
-  max-width: 10%;
+  max-width: 12%;
   overflow: hidden;
   align-items: center;
-  flex: 0 0 10%;
+  flex: 0 0 12%;
 }
 
 .site--setting:hover {
@@ -188,8 +206,8 @@ const renderStore = useRenderStore()
 }
 
 .group__content--all {
-  flex: 0 0 90%;
-  max-width: 90%;
+  flex: 0 0 88%;
+  max-width: 88%;
 }
 
 .group__header--line {

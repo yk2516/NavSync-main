@@ -22,7 +22,17 @@ export const useModalStore = defineStore('modal', () => {
     url: '',
     favicon: '',
     bgColor: '',
+    iconPadding: 0,
   })
+
+  /** 打开弹窗前先归零，避免上一个站点的底色/边距残留到下一个 */
+  function resetInputs() {
+    inputValues.name = ''
+    inputValues.url = ''
+    inputValues.favicon = ''
+    inputValues.bgColor = ''
+    inputValues.iconPadding = 0
+  }
 
   // ! get common props
   type CommonProperties<T, U> = {
@@ -48,6 +58,7 @@ export const useModalStore = defineStore('modal', () => {
 
     modalVisible.value = true
     // init inputs
+    resetInputs()
     if (actionType === 'update') {
       const updateTarget = {
         site: () => getCommonProps(inputValues, siteStore.data[siteStore.cateIndex].groupList[groupIndex].siteList[siteIndex]),
@@ -104,9 +115,7 @@ export const useModalStore = defineStore('modal', () => {
       siteStore.setCateIndex(siteStore.data.length - 1)
   }
   function clearInput() {
-    let key: keyof typeof inputValues
-    for (key in inputValues)
-      inputValues[key] = ''
+    resetInputs()
   }
 
   return {

@@ -38,14 +38,9 @@ function handleDragEnd(e: any) {
 </script>
 
 <template>
-  <section
-    :class="{
-      nav__items: !settingStore.isSetting,
-    }"
-    flex-center pb-16 text-14 md="text-15 pb-32" lg="text-15 pb-32"
-  >
+  <section class="cate-nav" flex-center>
     <draggable
-      class="flex gap-x-12"
+      class="cate-nav__list"
       :list="siteStore.data"
       item-key="id"
       :component-data="{
@@ -53,26 +48,18 @@ function handleDragEnd(e: any) {
         type: 'transition-group',
       }"
       v-bind="draggableOptions"
-      style="overflow: scroll; white-space: nowrap;"
       @start="handleStart"
       @end="handleDragEnd"
     >
       <template #item="{ element: cate, index: i }: { element: Category, index: number }">
+        <!-- 一级分类：胶囊标签。实心强调色底 + 白字，比原先的低对比下划线显眼得多 -->
         <div
+          class="cate-tab"
           :class="{
-            // white setting
-            'text-$primary-light-c hover:text-$text-c': siteStore.cateIndex !== i && settingStore.isWhiteTheme,
-            'border-$text-c text-$text-c': siteStore.cateIndex === i && settingStore.isWhiteTheme,
-            // colorful setting
-            'border-$primary-c text-$primary-c': siteStore.cateIndex === i && !settingStore.isWhiteTheme,
-            'hover:text-$primary-c': !settingStore.isWhiteTheme,
-            // common setting
+            'cate-tab--active': siteStore.cateIndex === i,
             'site--setting': settingStore.isSetting,
             'site--select': siteStore.cateIndex === i && settingStore.isSetting,
           }"
-          border="b-2 transparent"
-          shrink-0 cursor-pointer transition-color duration-300 p-4
-          style="text-align: center;"
           @click="handleCateClick(i)"
         >
           {{ cate.name }}
@@ -80,13 +67,12 @@ function handleDragEnd(e: any) {
       </template>
     </draggable>
     <n-button
-
       v-if="settingStore.isSetting"
       class="ml-12"
       type="primary"
       size="small"
       :focusable="false"
-      secondary min-h-30
+      secondary
       @click="modalStore.showModal('add', 'cate')"
     >
       <template #icon>
@@ -97,16 +83,75 @@ function handleDragEnd(e: any) {
 </template>
 
 <style lang="scss" scoped>
+.cate-nav {
+  padding-bottom: 26px;
+}
+
+.cate-nav__list {
+  display: flex;
+  gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: none;
+  padding: 4px 2px;
+}
+
+.cate-nav__list::-webkit-scrollbar {
+  display: none;
+}
+
+.cate-tab {
+  flex: 0 0 auto;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  /* 未选中：靠半透明底 + 高不透明度文字保证在壁纸上也看得清 */
+  color: var(--text-c);
+  background-color: color-mix(in srgb, var(--main-bg-c) 42%, transparent);
+  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.cate-tab:hover {
+  color: var(--text-c);
+  background-color: color-mix(in srgb, var(--main-bg-c) 68%, transparent);
+  transform: translateY(-1px);
+}
+
+.cate-tab--active {
+  color: #fff;
+  font-weight: 600;
+  background-color: var(--wallpaper-accent, var(--primary-c));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 40%, transparent);
+}
+
+.cate-tab--active:hover {
+  color: #fff;
+  background-color: var(--wallpaper-accent, var(--primary-c));
+}
+
 .site--setting {
   border: 1px dashed var(--setting-border-c);
-  border-radius: 2px;
+  border-radius: 999px;
 }
 
 .site--select {
   background-color: var(--setting-group-bg-c);
+  color: var(--primary-c);
 }
 
-.nav__items {
-  padding-bottom: 8rem;
+@media screen and (max-width: 640px) {
+  .cate-nav {
+    padding-bottom: 18px;
+  }
+
+  .cate-tab {
+    padding: 6px 13px;
+    font-size: 13px;
+  }
 }
 </style>

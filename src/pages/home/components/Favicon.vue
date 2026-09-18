@@ -29,11 +29,32 @@ function handleFaviconError(site: Site) {
     return
   site.bgColor = getRandomDarkColor()
 }
+
+// 图标底色与边距由站点自己携带（站长在编辑弹窗里设置，仿极光Tab）
+const boxStyle = computed(() => {
+  const bg = props.site.bgColor?.trim()
+  const padding = Number(props.site.iconPadding ?? 0)
+  return {
+    backgroundColor: bg || 'transparent',
+    padding: `${Number.isFinite(padding) ? Math.max(0, Math.min(24, padding)) : 0}px`,
+  }
+})
+
+// 图片样式 = 图标风格（鲜艳/朴素/灰白）+ 加载淡入
+const imgStyle = computed(() => {
+  const raw = iconStyle.value
+  const base: Record<string, any> = (raw && typeof raw === 'object') ? { ...(raw as Record<string, any>) } : {}
+  if (!imgLoaded.value)
+    base.opacity = '0'
+  base.transition = 'opacity 0.3s'
+  return base
+})
 </script>
 
 <template>
-  <!-- 上游资源固定按 80x80 请求，页面固定 64x64 渲染，避免 Favicon 过小 -->
-  <div class="favicon-box" :style="iconStyle">
+  <!-- 尺寸/圆角/不透明度来自壁纸面板的全局设置（CSS 变量），
+       底色与边距来自站点自身的设置 -->
+  <div class="favicon-box" :style="boxStyle">
     <div v-if="!isGen && !imgLoaded" class="favicon-skeleton" />
     <img
       v-if="!isGen"
@@ -41,50 +62,52 @@ function handleFaviconError(site: Site) {
       :src="site.favicon || getFaviconUrl(site.url)"
       decoding="async"
       loading="lazy"
-      :style="{ opacity: imgLoaded ? 1 : 0, transition: 'opacity 0.3s' }"
+      :style="imgStyle"
       @error="handleFaviconError(site)"
       @load="imgLoaded = true"
     >
-    <div v-else class="favicon-fallback" :style="{ backgroundColor: site.bgColor }">
+    <div v-else class="favicon-fallback" :style="{ backgroundColor: site.bgColor || '#4b5563' }">
       {{ site.name.length > 0 ? site.name.toLocaleUpperCase().charAt(0) : 'c' }}
     </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.favicon-box,
+/* 尺寸与圆角走 CSS 变量，站长/访客都能在壁纸面板里实时调 */
+.favicon-box {
+  width: var(--wallpaper-icon-size, 64px);
+  height: var(--wallpaper-icon-size, 64px);
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: var(--wallpaper-icon-radius, 12px);
+  opacity: var(--wallpaper-icon-opacity, 1);
+  transition: width .2s ease, height .2s ease, border-radius .2s ease, opacity .2s ease, background-color .2s ease;
+}
+
 .favicon-skeleton,
 .favicon-image,
 .favicon-fallback {
-  width: 64px;
-  height: 64px;
-}
-
-.favicon-box {
-  flex: 0 0 64px;
-  overflow: hidden;
-  border-radius: 12px;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
 }
 
 .favicon-skeleton {
   background: var(--setting-group-bg-c);
-  border-radius: 12px;
   animation: favicon-pulse 1.4s ease-in-out infinite;
 }
 
 .favicon-image {
   display: block;
   object-fit: contain;
-  border-radius: 12px;
 }
 
 .favicon-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
   color: #fff;
-  font-size: 24px;
+  font-size: calc(var(--wallpaper-icon-size, 64px) * 0.375);
   line-height: 1;
   transform: scale(.92);
 }
