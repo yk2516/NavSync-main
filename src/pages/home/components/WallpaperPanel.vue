@@ -173,9 +173,16 @@ const perPageCount = computed(() => {
   return rows * cols
 })
 
-/** 一键回到「2 行 × 5 列」的推荐布局 */
+/** 一键回到「2 行 × 5 列 + 正圆大图标」的推荐外观 */
 function resetLayout() {
-  wallpaperStore.update({ layoutRows: 2, layoutCols: 5, layoutColGap: 30, layoutRowGap: 30 })
+  wallpaperStore.update({
+    layoutRows: 2,
+    layoutCols: 5,
+    layoutColGap: 30,
+    layoutRowGap: 30,
+    iconRadius: 50,
+    iconSize: 112,
+  })
 }
 </script>
 
@@ -303,10 +310,35 @@ function resetLayout() {
         <section class="wallpaper-section">
           <div class="wallpaper-title">
             站点图标
+            <span class="panel-hint">形状 / 大小 / 圆角</span>
+          </div>
+          <!-- 一键形状：直接写 iconRadius（圆形 = 50%，正圆）。复用 .advanced-tabs 的按钮外观 -->
+          <div class="advanced-tabs icon-shape-row">
+            <button type="button" :class="{ active: settings.iconRadius >= 48 }" @click="wallpaperStore.update({ iconRadius: 50 })">
+              圆形
+            </button>
+            <button type="button" :class="{ active: settings.iconRadius > 8 && settings.iconRadius < 48 }" @click="wallpaperStore.update({ iconRadius: 26 })">
+              圆角方形
+            </button>
+            <button type="button" :class="{ active: settings.iconRadius <= 8 }" @click="wallpaperStore.update({ iconRadius: 0 })">
+              方形
+            </button>
           </div>
           <div class="sliders">
+            <label><span>图标大小</span><input v-model.number="settings.iconSize" type="range" min="40" max="140" step="1"><b>{{ settings.iconSize }}%</b></label>
             <label><span>图标圆角</span><input v-model.number="settings.iconRadius" type="range" min="0" max="50"><b>{{ settings.iconRadius }}%</b></label>
             <label><span>图标不透明度</span><input v-model.number="settings.iconOpacity" type="range" min="10" max="100"><b>{{ settings.iconOpacity }}%</b></label>
+          </div>
+        </section>
+
+        <section class="wallpaper-section">
+          <div class="wallpaper-title">
+            搜索框
+          </div>
+          <div class="sliders">
+            <label><span>搜索框宽度</span><input v-model.number="settings.searchWidth" type="range" min="260" max="900" step="10"><b>{{ settings.searchWidth }}px</b></label>
+            <label><span>搜索框圆角</span><input v-model.number="settings.searchRadius" type="range" min="0" max="28" step="1"><b>{{ settings.searchRadius }}px</b></label>
+            <label><span>搜索框透明度</span><input v-model.number="settings.inputOpacity" type="range" min="0" max="100"><b>{{ formatPercent(settings.inputOpacity) }}</b></label>
           </div>
         </section>
 
@@ -325,7 +357,6 @@ function resetLayout() {
             <label><span>每页列数</span><input v-model.number="settings.layoutCols" type="range" min="2" max="8" step="1"><b>{{ settings.layoutCols }} 列</b></label>
             <label><span>列间距</span><input v-model.number="settings.layoutColGap" type="range" min="0" max="80" step="1"><b>{{ settings.layoutColGap }}%</b></label>
             <label><span>行间距</span><input v-model.number="settings.layoutRowGap" type="range" min="0" max="80" step="1"><b>{{ settings.layoutRowGap }}%</b></label>
-            <label><span>图标大小</span><input v-model.number="settings.iconSize" type="range" min="40" max="140" step="1"><b>{{ settings.iconSize }}%</b></label>
           </div>
           <div
             class="layout-preview" :style="{
@@ -369,7 +400,6 @@ function resetLayout() {
         <section class="wallpaper-section sliders">
           <label><span>壁纸透明度</span><input v-model.number="settings.wallpaperOpacity" type="range" min="0" max="100"><b>{{ formatPercent(settings.wallpaperOpacity) }}</b></label>
           <label><span>壁纸模糊</span><input v-model.number="settings.wallpaperBlur" type="range" min="0" max="32"><b>{{ settings.wallpaperBlur }}px</b></label>
-          <label><span>输入框透明度</span><input v-model.number="settings.inputOpacity" type="range" min="0" max="100"><b>{{ formatPercent(settings.inputOpacity) }}</b></label>
           <label><span>弹窗透明度</span><input v-model.number="settings.popupOpacity" type="range" min="0" max="100"><b>{{ formatPercent(settings.popupOpacity) }}</b></label>
           <label class="checkbox-label"><input v-model="settings.autoDim" type="checkbox"><span>自动适配壁纸明暗（深色壁纸自动转浅色文字）</span></label>
         </section>
@@ -472,6 +502,8 @@ function resetLayout() {
 .sliders .checkbox-label { display: flex; grid-template-columns: unset; justify-content: flex-start; }
 .advanced-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
 .advanced-tabs button { padding: 5px 10px; border-radius: 6px; }
+/* 图标形状：三个等宽按钮 */
+.icon-shape-row button { flex: 1; }
 .advanced-input { align-items: stretch; flex-wrap: nowrap; }
 .advanced-input :deep(.n-input) { flex: 1; }
 .clear-button { width: 100%; margin-top: 12px; }
@@ -479,6 +511,9 @@ function resetLayout() {
 .wallpaper-footer span { margin-right: auto; font-size: 12px; opacity: .62; }
 /* ---- 自定义布局 ---- */
 .layout-count { float: right; font-weight: 400; font-size: 12px; opacity: .62; }
+/* 标题右侧的说明文字。不要复用 .layout-count —— 那个类名是「每页 N 个」的专属标记，
+ * 测试与别处都按它取值，多挂一个会让 querySelector 取错元素。 */
+.panel-hint { float: right; font-weight: 400; font-size: 12px; opacity: .62; }
 .layout-preview {
   display: grid;
   justify-items: center;

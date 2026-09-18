@@ -35,6 +35,15 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    // vite-plugin-pages 生成的路由表是虚拟模块（virtual:generated-pages），
+    // 依赖扫描器（esbuild）跟不进去，于是页面里用到的 dayjs / vuedraggable /
+    // axios / axios-jsonp / @vueuse/components 全部漏扫。
+    // 后果：dev 启动后首次访问某个页面时才被发现，触发一次
+    // 「optimized dependencies changed. reloading」整页重载（开发体验很差）。
+    // 把页面目录一并作为扫描入口，首次启动就收全。
+    entries: ['index.html', 'src/pages/**/*.vue'],
+  },
   server: {
     port: 1888,
   },

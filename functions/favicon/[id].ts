@@ -39,7 +39,22 @@ interface CacheMeta {
 const TTL_MIN = 60
 const TTL_MAX = 2_592_000 // 30 天（KV 上限）
 const DEFAULT_TTL = 2_592_000
-const FAVICON_SIZE = 80
+
+/**
+ * 向上游请求的图标边长（px）。
+ *
+ * 定 128 的理由：前端图标尺寸由 `--wallpaper-icon-size` 驱动，
+ * 基准 64px、可调 40%~140%，即最大 89.6 CSS px；在 2 倍屏上需要 179 个设备像素。
+ * 原先的 80px 源在最大档会被放大 2.2 倍，肉眼可见发虚 —— 这是「图标看起来糊」的主因。
+ * 128px 源在 2 倍屏下仍有 1.4 倍余量，且各上游都支持（duckduckgo 忽略尺寸参数、
+ * 按站点实际拥有的最大图标返回，不会更差）。
+ *
+ * 注意：改动本值必须同时改 KV 键前缀（见 KV_PREFIX），否则旧尺寸的缓存会继续命中。
+ */
+const FAVICON_SIZE = 128
+
+/** KV 键前缀。缓存内容与尺寸绑定，尺寸变更时递增版本号以作废旧缓存 */
+const KV_PREFIX = 'favicon:v2:'
 
 /** 回源超时 */
 const UPSTREAM_TIMEOUT_MS = 8_000
@@ -76,7 +91,7 @@ function buildFaviconUrl(source: string, domain: string): string {
       return `https://0x3.com/icon?host=${domain}&size=${FAVICON_SIZE}`
     case 'google':
     default:
-      // Google favicon service 支持 sz 参数，固定请求 80x80，前端统一渲染为 64x64。
+      // Google favicon service 的 sz 参数支持 16/32/64/128/256，按站点实际拥有的最大尺寸返回
       return `https://www.google.com/s2/favicons?domain=${domain}&sz=${FAVICON_SIZE}`
   }
 }
@@ -150,7 +165,7 @@ export const onRequestGet: PagesFunction<FaviconEnv> = async (context) => {
     return new Response('Bad Request', { status: 400 })
 
   const kv = env.FAVICON_KV
-  const kvKey = `favicon:${domain}`
+  const kvKey = `${KV_PREFIX}${domain}`
   const ttl = clampTtl(Number(env.FAVICON_TTL) || DEFAULT_TTL)
 
   // 2. 查 KV 缓存（带 metadata，命中时返回正确的 Content-Type）

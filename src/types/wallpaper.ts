@@ -35,6 +35,10 @@ export interface WallpaperSettings {
   layoutColGap: number
   /** 自定义布局：行间距（%，相对图标大小） */
   layoutRowGap: number
+  /** 搜索框宽度（px） */
+  searchWidth: number
+  /** 搜索框圆角（px） */
+  searchRadius: number
 }
 
 export interface WallpaperSourceItem {

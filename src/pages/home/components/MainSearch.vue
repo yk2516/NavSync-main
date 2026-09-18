@@ -482,14 +482,15 @@ watch(manageVisible, (visible) => {
 }
 
 .search-inner {
-  width: min(560px, 100%);
+  /* 宽度由壁纸面板「搜索框宽度」控制（引擎条与搜索框同宽，跟着一起变） */
+  width: min(var(--wallpaper-search-width, 560px), 100%);
 }
 
 .search {
   display: flex;
   align-items: center;
   height: 46px;
-  border-radius: 12px;
+  border-radius: var(--wallpaper-search-radius, 12px);
   background-color: color-mix(in srgb, var(--main-bg-c) calc(var(--wallpaper-input-opacity, .6) * 100%), transparent);
   border: 1px solid color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 16%, transparent);
   backdrop-filter: blur(var(--glass-blur, 10px)) saturate(var(--glass-saturate, 118%));

@@ -36,9 +36,11 @@ const DEFAULTS: WallpaperSettings = {
   inputOpacity: 60,
   popupOpacity: 90,
   autoDim: true,
-  iconRadius: 26,
+  // 图标默认「正圆 + 略大」：对齐 inftab 那类新标签页的观感（品牌图标撑满圆形、
+  // 名称在下方小字）。想回到圆角方形把「图标形状」切一下即可。
+  iconRadius: 50,
   iconOpacity: 100,
-  iconSize: 100,
+  iconSize: 112,
   imageSource: 'picsum',
   customSource: '',
   folderName: '',
@@ -47,6 +49,9 @@ const DEFAULTS: WallpaperSettings = {
   layoutCols: 5,
   layoutColGap: 30,
   layoutRowGap: 30,
+  // 搜索框：宽度 / 圆角（透明度复用 inputOpacity）
+  searchWidth: 560,
+  searchRadius: 12,
 }
 
 function storageKey(isAdmin: boolean) {
@@ -60,6 +65,10 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
 
   try {
     const parsed = JSON.parse(raw) as Partial<WallpaperSettings>
+    // 图标外观的旧默认值是「圆角方形 26% + 100% 大小」，已改为「正圆 50% + 112%」。
+    // 只要两项都还停在旧默认值，就判定为「没手动调过」并迁移到新默认值；
+    // 任一项被改过（哪怕是刻意调回 26%）都原样保留，不覆盖用户的显式选择。
+    const legacyIconLook = parsed.iconRadius === 26 && parsed.iconSize === 100
     return {
       ...DEFAULTS,
       ...parsed,
@@ -69,6 +78,7 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
       // 旧版本的「弹窗透明度」默认 40，但当时没有任何 CSS 消费它、从未生效。
       // 现在真正接上了，40% 不透明的弹窗读不清，迁移到新的可读默认值。
       popupOpacity: parsed.popupOpacity === 40 ? DEFAULTS.popupOpacity : (parsed.popupOpacity ?? DEFAULTS.popupOpacity),
+      ...(legacyIconLook ? { iconRadius: DEFAULTS.iconRadius, iconSize: DEFAULTS.iconSize } : {}),
       recentImages: Array.isArray(parsed.recentImages) ? parsed.recentImages.slice(0, 4) : [],
       // 布局字段是后加的，旧数据里没有；即便有也可能是脏值，统一在这里夹到合法区间，
       // 否则 0 列 / NaN 会让网格塌成一条线，而面板滑块也会显示成怪值。
@@ -280,9 +290,11 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     root.style.setProperty('--wallpaper-image', image ? `url("${safeUrl(image)}")` : 'none')
     root.style.setProperty('--wallpaper-gradient', current.gradient || 'none')
     // 图标外观（站点卡片）
-    root.style.setProperty('--wallpaper-icon-radius', `${clamp(current.iconRadius, 0, 50, 26)}%`)
+    root.style.setProperty('--wallpaper-icon-radius', `${clamp(current.iconRadius, 0, 50, DEFAULTS.iconRadius)}%`)
     root.style.setProperty('--wallpaper-icon-opacity', String(clamp(current.iconOpacity, 10, 100, 100) / 100))
-    root.style.setProperty('--wallpaper-icon-size', `${(ICON_BASE_SIZE * clamp(current.iconSize, 40, 140, 100) / 100).toFixed(1)}px`)
+    root.style.setProperty('--wallpaper-icon-size', `${(ICON_BASE_SIZE * clamp(current.iconSize, 40, 140, DEFAULTS.iconSize) / 100).toFixed(1)}px`)
+    root.style.setProperty('--wallpaper-search-width', `${clamp(current.searchWidth, 260, 900, DEFAULTS.searchWidth)}px`)
+    root.style.setProperty('--wallpaper-search-radius', `${clamp(current.searchRadius, 0, 28, DEFAULTS.searchRadius)}px`)
     // 自定义布局：行数/列数/间距。间距用「图标大小 × 百分比」换算，
     // 这样调大图标时间距会一起放大，不会出现「图标很大但挤在一起」。
     const rows = Math.round(clamp(current.layoutRows, 1, 6, DEFAULTS.layoutRows))

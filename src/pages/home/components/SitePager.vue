@@ -7,6 +7,7 @@ const siteStore = useSiteStore()
 const wallpaperStore = useWallpaperStore()
 const renderStore = useRenderStore()
 const modalStore = useModalStore()
+const adminStore = useAdminStore()
 
 const viewportEl = ref<HTMLElement>()
 
@@ -20,6 +21,9 @@ const perPage = computed(() => {
 interface PageSite extends Site {
   /** 已过协议白名单的可点地址；空串表示链接非法（如 `javascript:`），卡片不可点 */
   safeUrl: string
+  /** 该站点在当前分类里的下标，右键编辑时用来定位（见 onSiteContextMenu） */
+  groupIndex: number
+  siteIndex: number
 }
 
 interface Page {
@@ -52,7 +56,12 @@ const pages = computed<Page[]>(() => {
         // 在这里统一过一遍协议白名单，模板里就不用重复调用：
         // 站点数据可能来自导入的 JSON，未过滤的 `javascript:` 会在点击时于本站执行
         sites: sites.slice(c * size, (c + 1) * size)
-          .map(site => ({ ...site, safeUrl: safeSiteUrl(site.url) })),
+          .map((site, si) => ({
+            ...site,
+            safeUrl: safeSiteUrl(site.url),
+            groupIndex: gi,
+            siteIndex: c * size + si,
+          })),
       })
     }
   })
@@ -99,6 +108,21 @@ function onSiteClick(e: MouseEvent, site: PageSite) {
     e.preventDefault()
     window.$message?.error(`「${site.name}」的链接不是合法的 http/https 地址，请在设置里修改`, { duration: 3200 })
   }
+}
+
+/**
+ * 右键站点卡片 → 直接打开该站点的编辑弹窗（只对站长开放）。
+ *
+ * 站长平时就停在浏览态（`/`），要改一个站点得先切到 `/setting` 再找到它；
+ * 这里给一条快捷路径，和引擎条「右键自定义引擎即编辑」保持一致。
+ *
+ * 访客不拦截右键 —— 保留浏览器原生菜单（新标签页打开、复制链接等）。
+ */
+function onSiteContextMenu(e: MouseEvent, site: PageSite) {
+  if (!adminStore.isAdmin)
+    return
+  e.preventDefault()
+  modalStore.showModal('update', 'site', site.groupIndex, site.siteIndex)
 }
 
 function goTo(index: number) {
@@ -255,6 +279,7 @@ onBeforeUnmount(() => {
                 :href="site.safeUrl || undefined" target="_blank"
                 :title="site.safeUrl ? site.name : `${site.name}（链接无效，请在设置里改成 http/https 地址）`"
                 @click="onSiteClick($event, site)"
+                @contextmenu="onSiteContextMenu($event, site)"
               >
                 <Favicon :site="site" />
                 <span class="site-card__name">{{ site.name }}</span>
