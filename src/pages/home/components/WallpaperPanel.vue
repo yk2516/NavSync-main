@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { wallpaperSkins } from '@/stores/wallpaper'
-import { WALLPAPER_SOURCES, isFolderPickerSupported, listImagesInDirectory, pickWallpaperDirectory } from '@/utils'
+import { WALLPAPER_SOURCES, forgetWallpaperDirectory, isFolderPickerSupported, listImagesInDirectory, pickWallpaperDirectory } from '@/utils'
 
 const wallpaperStore = useWallpaperStore()
 const fileInput = ref<HTMLInputElement>()
@@ -111,7 +111,14 @@ async function chooseFolder() {
   }
 }
 
-function clearFolder() {
+/**
+ * 清除壁纸文件夹。
+ * 除了清掉内存里的图片与 folderName，还必须把 IndexedDB 里的目录句柄一并删除 ——
+ * 否则句柄会一直留在本机（小风车的恢复逻辑虽然被 folderName 挡住、不会读回它，
+ * 但「清除」就该真的清干净）。
+ */
+async function clearFolder() {
+  await forgetWallpaperDirectory()
   wallpaperStore.releaseFolderImages()
   wallpaperStore.update({ folderName: '' })
 }

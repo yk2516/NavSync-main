@@ -37,7 +37,8 @@ export const WALLPAPER_SOURCES: WallpaperSourceItem[] = [
   },
 ]
 
-export function getWallpaperSource(id: string) {
+/** 按 id 找壁纸源，找不到就回落第一个（`buildWallpaperUrl` 内部用它取 build 函数） */
+function getWallpaperSource(id: string) {
   return WALLPAPER_SOURCES.find(item => item.id === id) || WALLPAPER_SOURCES[0]
 }
 

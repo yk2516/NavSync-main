@@ -74,10 +74,3 @@ export function saveViewerCache(cache: ViewerCache) {
     // 配额不足等场景静默失败：仅影响下次首屏速度，不影响功能
   }
 }
-
-export function clearViewerCache() {
-  try {
-    localStorage.removeItem(STORAGE_KEY_VIEWER)
-  }
-  catch {}
-}
