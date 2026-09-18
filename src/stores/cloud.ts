@@ -4,8 +4,10 @@ import {
   fetchCloudStatus,
   fetchUserInfo,
   getCloudStatus,
+  getStoredLastSync,
   getStoredPassword,
   isPasswordAuthed,
+  setStoredLastSync,
   uploadToCloud,
   validatePassword,
 } from '@/utils/cloud'
@@ -14,7 +16,7 @@ export const useCloudStore = defineStore('cloud', () => {
   const isUploading = ref(false)
   const isDownloading = ref(false)
   const isConnecting = ref(false)
-  const lastSyncTime = ref(localStorage.getItem('cloud_last_sync') || '')
+  const lastSyncTime = ref(getStoredLastSync())
   const cloudStatus = ref(getCloudStatus())
   const username = ref('')
 
@@ -155,7 +157,7 @@ export const useCloudStore = defineStore('cloud', () => {
 
     if (result.success) {
       const now = new Date().toLocaleString()
-      localStorage.setItem('cloud_last_sync', now)
+      setStoredLastSync(now)
       lastSyncTime.value = now
       cloudStatus.value = getCloudStatus()
       window.$message?.success('配置已同步至云端', { duration: 3000 })
@@ -188,7 +190,7 @@ export const useCloudStore = defineStore('cloud', () => {
       siteStore.cateIndex = 0
 
       const now = new Date().toLocaleString()
-      localStorage.setItem('cloud_last_sync', now)
+      setStoredLastSync(now)
       lastSyncTime.value = now
 
       window.$message?.success('已从云端拉取最新配置', { duration: 3000 })

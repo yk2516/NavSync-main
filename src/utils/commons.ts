@@ -48,3 +48,35 @@ export function safeSiteUrl(url?: string | null): string {
     return ''
   }
 }
+
+/**
+ * 规范化站点图标地址：只放行 http / https 与**本站同域相对路径**（`/favicon/...`）。
+ *
+ * 和 `safeSiteUrl` 的区别在于危害等级：favicon 绑在 `<img :src>` 上，
+ * `javascript:` 不会执行，所以它不是脚本注入面。但**未过滤的远程地址是一个追踪信标** ——
+ * 导入一份第三方「导航配置包」再打开首页，就会把访客的 IP / UA / 时间戳
+ * 一并送给对方（配置包里塞几十个不同域名的图标还能顺便数出「谁在用」）。
+ * `data:` 另有大 payload 拖慢渲染的问题。
+ *
+ * 放行相对路径是因为项目自身的图标走同域的 `/favicon/{domain}.png`。
+ *
+ * @returns 可安全写入 `src` 的地址；返回空串表示不可用，调用方应回退到自动获取
+ */
+export function safeFaviconUrl(url?: string | null): string {
+  const raw = (url || '').trim()
+  if (!raw)
+    return ''
+
+  // 本站同域相对路径（`//host/x` 是协议相对地址，不是同域路径，交给下面的判定）
+  if (raw.startsWith('/') && !raw.startsWith('//'))
+    return raw
+
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`
+  try {
+    const { protocol } = new URL(candidate)
+    return (protocol === 'http:' || protocol === 'https:') ? candidate : ''
+  }
+  catch {
+    return ''
+  }
+}

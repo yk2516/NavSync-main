@@ -1,8 +1,10 @@
+import { readStore, removeStore, writeStore } from './storage'
 import type { Category, Settings } from '@/types'
 
 const STORAGE_KEY_GIST_ID = 'cloud_gist_id'
 const STORAGE_KEY_PASSWORD = 'cloud_password'
 const STORAGE_KEY_AUTHED = 'cloud_authed'
+const STORAGE_KEY_LAST_SYNC = 'cloud_last_sync'
 
 export interface CloudData {
   data: Category[]
@@ -14,33 +16,43 @@ export interface CloudData {
 // ---------- Gist ID ----------
 
 function getStoredGistId(): string {
-  return localStorage.getItem(STORAGE_KEY_GIST_ID) || ''
+  return readStore(STORAGE_KEY_GIST_ID)
 }
 
 function setStoredGistId(id: string) {
-  localStorage.setItem(STORAGE_KEY_GIST_ID, id)
+  writeStore(STORAGE_KEY_GIST_ID, id)
 }
 
 // ---------- 口令 ----------
 
 function getStoredPassword(): string {
-  return localStorage.getItem(STORAGE_KEY_PASSWORD) || ''
+  return readStore(STORAGE_KEY_PASSWORD)
 }
 
 function setStoredPassword(password: string) {
-  localStorage.setItem(STORAGE_KEY_PASSWORD, password)
+  writeStore(STORAGE_KEY_PASSWORD, password)
 }
 
 export function isPasswordAuthed(): boolean {
-  return localStorage.getItem(STORAGE_KEY_AUTHED) === 'true'
+  return readStore(STORAGE_KEY_AUTHED) === 'true'
 }
 
 function setPasswordAuthed(authed: boolean) {
   if (authed)
-    localStorage.setItem(STORAGE_KEY_AUTHED, 'true')
+    writeStore(STORAGE_KEY_AUTHED, 'true')
 
   else
-    localStorage.removeItem(STORAGE_KEY_AUTHED)
+    removeStore(STORAGE_KEY_AUTHED)
+}
+
+// ---------- 上次同步时间 ----------
+
+export function getStoredLastSync(): string {
+  return readStore(STORAGE_KEY_LAST_SYNC)
+}
+
+export function setStoredLastSync(value: string) {
+  writeStore(STORAGE_KEY_LAST_SYNC, value)
 }
 
 // ---------- 状态 ----------
@@ -51,10 +63,10 @@ export interface CloudStatus {
 }
 
 export function clearCloudStorage() {
-  localStorage.removeItem(STORAGE_KEY_GIST_ID)
-  localStorage.removeItem(STORAGE_KEY_PASSWORD)
-  localStorage.removeItem(STORAGE_KEY_AUTHED)
-  localStorage.removeItem('cloud_last_sync')
+  removeStore(STORAGE_KEY_GIST_ID)
+  removeStore(STORAGE_KEY_PASSWORD)
+  removeStore(STORAGE_KEY_AUTHED)
+  removeStore(STORAGE_KEY_LAST_SYNC)
 }
 
 // ---------- API 调用（同域，无需配置地址） ----------
@@ -169,7 +181,7 @@ export async function uploadToCloud(data: Category[], settings: Settings): Promi
       setStoredGistId(result.gistId)
 
     if (!result.success && gistId && res.status === 404)
-      localStorage.removeItem(STORAGE_KEY_GIST_ID)
+      removeStore(STORAGE_KEY_GIST_ID)
 
     return result
   }

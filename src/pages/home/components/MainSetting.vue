@@ -18,7 +18,10 @@ const adminStore = useAdminStore()
 
 /* ThemeSetting */
 function renderThemeLabel(option: ThemeSetting): VNode {
-  const currentTheme = themeList.find(item => item.enName === option.enName)!
+  // 兜底：n-select 在当前值找不到匹配项时会合成一个 `{label, value}` 对象传进来，
+  // 直接取 `.value` 会抛 TypeError，主题选择器会被渲染错误整块吞掉。
+  // 正常情况下 `pickKnownSettings()` 已经拦住了脏值，这里只是最后一道保险。
+  const currentTheme = themeList.find(item => item.enName === option?.enName) ?? themeList[0]
   const buttonColor = currentTheme!.value.buttonC
   const darkConfig = isDark.value ? { style: { color: '#ffffff' } } : {}
   return h('div', { class: 'flex items-center gap-x-8' },

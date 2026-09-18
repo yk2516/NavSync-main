@@ -1,4 +1,5 @@
 import type { WallpaperSettings } from '@/types'
+import { readStore, writeStore } from '@/utils'
 import { buildWallpaperUrl } from '@/utils/wallpaperSource'
 
 const STORAGE_KEY_ADMIN = 'wallpaper_admin'
@@ -53,10 +54,11 @@ function storageKey(isAdmin: boolean) {
 }
 
 function loadSettings(isAdmin: boolean): WallpaperSettings {
+  const raw = readStore(storageKey(isAdmin))
+  if (!raw)
+    return { ...DEFAULTS, recentImages: [] }
+
   try {
-    const raw = localStorage.getItem(storageKey(isAdmin))
-    if (!raw)
-      return { ...DEFAULTS, recentImages: [] }
     const parsed = JSON.parse(raw) as Partial<WallpaperSettings>
     return {
       ...DEFAULTS,
@@ -241,18 +243,14 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
   function persist() {
     if (skipPersist)
       return
-    try {
-      const snapshot = { ...settings.value }
-      // 文件夹壁纸是 objectURL，刷新即失效，持久化没有意义还会写爆配额
-      if (snapshot.source === 'folder')
-        snapshot.image = ''
-      localStorage.setItem(storageKey(isAdmin.value), JSON.stringify(snapshot))
-    }
-    catch {
-      // 图片超出 localStorage 配额：当前会话仍可用，但刷新后会丢失。
-      // 不阻断页面，只留一条线索便于排查。
+    const snapshot = { ...settings.value }
+    // 文件夹壁纸是 objectURL，刷新即失效，持久化没有意义还会写爆配额
+    if (snapshot.source === 'folder')
+      snapshot.image = ''
+    // 图片超出 localStorage 配额：当前会话仍可用，但刷新后会丢失。
+    // 不阻断页面，只留一条线索便于排查。
+    if (!writeStore(storageKey(isAdmin.value), JSON.stringify(snapshot)))
       console.warn('[wallpaper] 壁纸保存失败，可能图片过大超出 localStorage 配额')
-    }
   }
 
   function apply() {

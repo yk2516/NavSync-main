@@ -1,3 +1,4 @@
+import { readStore, removeStore, writeStore } from './storage'
 import type { Category, Settings } from '@/types'
 
 /**
@@ -15,25 +16,15 @@ const STORAGE_KEY_VIEWER = 'viewer_config'
 // ---------- 站长标记 ----------
 
 export function isAdminStored(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY_ADMIN) === 'true'
-  }
-  catch {
-    return false
-  }
+  return readStore(STORAGE_KEY_ADMIN) === 'true'
 }
 
 export function setAdminStored(authed: boolean) {
-  try {
-    if (authed)
-      localStorage.setItem(STORAGE_KEY_ADMIN, 'true')
+  if (authed)
+    writeStore(STORAGE_KEY_ADMIN, 'true')
 
-    else
-      localStorage.removeItem(STORAGE_KEY_ADMIN)
-  }
-  catch {
-    // 隐私模式下 localStorage 不可写，忽略即可（本次会话内仍可用内存态）
-  }
+  else
+    removeStore(STORAGE_KEY_ADMIN)
 }
 
 // ---------- 访客只读配置缓存 ----------
@@ -45,11 +36,11 @@ export interface ViewerCache {
 }
 
 export function loadViewerCache(): ViewerCache | undefined {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_VIEWER)
-    if (!raw)
-      return undefined
+  const raw = readStore(STORAGE_KEY_VIEWER)
+  if (!raw)
+    return undefined
 
+  try {
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed?.data) || parsed.data.length === 0 || !parsed?.settings)
       throw new Error('viewer_config 数据格式异常')
@@ -58,19 +49,12 @@ export function loadViewerCache(): ViewerCache | undefined {
   }
   catch {
     // 缓存损坏时清掉，避免访客白屏
-    try {
-      localStorage.removeItem(STORAGE_KEY_VIEWER)
-    }
-    catch {}
+    removeStore(STORAGE_KEY_VIEWER)
     return undefined
   }
 }
 
 export function saveViewerCache(cache: ViewerCache) {
-  try {
-    localStorage.setItem(STORAGE_KEY_VIEWER, JSON.stringify(cache))
-  }
-  catch {
-    // 配额不足等场景静默失败：仅影响下次首屏速度，不影响功能
-  }
+  // 写失败（配额不足 / 存储被禁）静默忽略：仅影响下次首屏速度，不影响功能
+  writeStore(STORAGE_KEY_VIEWER, JSON.stringify(cache))
 }

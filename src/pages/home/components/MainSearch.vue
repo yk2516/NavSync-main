@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { vOnClickOutside } from '@vueuse/components'
 import type { Search } from '@/types'
-import { getFaviconUrl } from '@/utils'
+import { getFaviconUrl, safeFaviconUrl } from '@/utils'
 import searchEngine from '@/utils/search-engine'
 
 const settingStore = useSettingStore()
@@ -54,7 +54,8 @@ function search() {
 }
 
 function _getFavicon(search: Search) {
-  return search.favicon || getFaviconUrl(search.url)
+  // 自定义引擎的 favicon 来自 localStorage，同样要过白名单（见 safeFaviconUrl）
+  return safeFaviconUrl(search.favicon) || getFaviconUrl(search.url)
 }
 
 function selectEngine(i: number) {

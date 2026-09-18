@@ -1,5 +1,6 @@
 export * from './commons'
 export * from './favicon'
+export * from './storage'
 export * from './lunar'
 export * from './types/theme'
 export * from './types/search'

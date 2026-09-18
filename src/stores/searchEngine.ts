@@ -1,20 +1,29 @@
 import type { Search } from '@/types'
-import { searchList } from '@/utils'
+import { readStore, removeStore, safeSiteUrl, searchList, writeStore } from '@/utils'
 
 const STORAGE_KEY = 'search_engines_custom'
 
 function loadCustom(): Search[] {
+  const raw = readStore(STORAGE_KEY)
+  if (!raw)
+    return []
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw)
-      return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed))
       throw new Error('自定义搜索引擎数据格式异常')
-    return parsed.filter((item: any) => item && typeof item.enName === 'string' && typeof item.url === 'string')
+    // url 同样要过协议白名单：新增/编辑走 normalize() 会补 https，
+    // 但**从 localStorage 读回的数据不经过它** —— 手工写进去的 `javascript:`
+    // 会一路进到 `window.open`（浏览器会拦，但没必要留一颗哑弹）。
+    return parsed.filter((item: any) =>
+      item
+      && typeof item.enName === 'string'
+      && typeof item.url === 'string'
+      && !!safeSiteUrl(item.url),
+    )
   }
   catch {
-    localStorage.removeItem(STORAGE_KEY)
+    removeStore(STORAGE_KEY)
     return []
   }
 }
@@ -30,12 +39,8 @@ export const useSearchEngineStore = defineStore('searchEngine', () => {
   const engines = computed<Search[]>(() => [...builtin.value, ...custom.value])
 
   function persist() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(custom.value))
-    }
-    catch {
-      // 配额异常时忽略：只影响下次打开是否还在
-    }
+    // 配额异常 / 存储被禁时忽略：只影响下次打开是否还在
+    writeStore(STORAGE_KEY, JSON.stringify(custom.value))
   }
 
   function normalize(input: { name: string; url: string; key: string; favicon?: string }) {

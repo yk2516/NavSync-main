@@ -1,6 +1,6 @@
 import preset from '@/preset.json'
 import type { Category, Group, Site } from '@/types'
-import { getFaviconUrl } from '@/utils'
+import { getFaviconUrl, readStore, removeStore, writeStore } from '@/utils'
 import { isAdminStored, loadViewerCache } from '@/utils/publicConfig'
 
 function loadData(): Category[] | undefined {
@@ -12,7 +12,7 @@ function loadData(): Category[] | undefined {
   }
 
   try {
-    const data = localStorage.getItem('cache')
+    const data = readStore('cache')
     if (!data)
       return undefined
     const parsed = JSON.parse(data)
@@ -22,7 +22,7 @@ function loadData(): Category[] | undefined {
   }
   catch {
     // 缓存数据损坏时清空，回退到默认 preset，避免应用白屏
-    localStorage.removeItem('cache')
+    removeStore('cache')
     return undefined
   }
 }
@@ -106,7 +106,8 @@ export const useSiteStore = defineStore('site', () => {
     // 访客只读：不把站长的云端配置写进站长专属的本地配置键
     if (!isAdminStored())
       return
-    localStorage.setItem('cache', JSON.stringify(data.value))
+    // 写失败（配额满 / 存储被禁）只影响下次打开能否恢复，不该让本次编辑失败
+    writeStore('cache', JSON.stringify(data.value))
   }
   function setData(value: Category[]) {
     data.value = value
