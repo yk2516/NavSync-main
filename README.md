@@ -105,8 +105,14 @@ GitHub Token 用于后端代你操作 Gist（创建、读取、更新）。**仅
 旧的 `FAVICON_KV` 绑定也建议从 Pages 项目里解绑（Settings → Bindings → 删除），不会报错但多余。
 
 > 0x3 在国内可直接访问，没有 CORS 限制（`<img>` 标签不受 CORS 约束）。
-> 代价是 0x3 只返 **32×32** PNG，2 倍屏上图标比之前的 128px 源略糊。
+> 代价是清晰度：主流站点基本只返 **32×32** PNG（实测 github / bilibili / 知乎 / 百度 / 淘宝 /
+> YouTube / X / 掘金 / V2EX / Apple / QQ 全部 32×32），少数冷门站点会返原始尺寸
+> （线上实测到 48 / 150）。2 倍屏上多数图标比之前的 128px 源略糊。
 > **速度优先于像素清晰度是这次改造的取舍**。
+>
+> ⚠️ **0x3 有防盗链：请求只要带 `Referer` 头就返 403。** 浏览器对 `<img>` 默认必带 Referer，
+> 所以每一处 favicon `<img>` 都必须带 `referrerpolicy="no-referrer"`，否则整页图标全挂
+> （且不会报任何 JS 错误，只是静默回落到兜底色块）。
 
 ### 第四步：在 Cloudflare Pages 部署
 
