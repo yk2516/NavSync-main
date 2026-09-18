@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { vOnClickOutside } from '@vueuse/components'
 import type { Search } from '@/types'
-import { getFaviconUrl, safeFaviconUrl } from '@/utils'
+import { resolveFaviconUrl } from '@/utils'
 import searchEngine from '@/utils/search-engine'
 
 const settingStore = useSettingStore()
@@ -54,8 +54,9 @@ function search() {
 }
 
 function _getFavicon(search: Search) {
-  // 自定义引擎的 favicon 来自 localStorage，同样要过白名单（见 safeFaviconUrl）
-  return safeFaviconUrl(search.favicon) || getFaviconUrl(search.url)
+  // 自定义引擎的 favicon 来自 localStorage，同样要过协议白名单；
+  // 老数据里存的 `/favicon/{domain}.png` 会就地把域名提出来改走 0x3（见 resolveFaviconUrl）
+  return resolveFaviconUrl(search.favicon, search.url)
 }
 
 function selectEngine(i: number) {

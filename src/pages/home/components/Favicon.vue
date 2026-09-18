@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PropType } from 'vue'
-import { getFaviconUrl, getRandomDarkColor, safeFaviconUrl } from '@/utils'
+import { getRandomDarkColor, resolveFaviconUrl } from '@/utils'
 import type { Site } from '@/types'
 
 const props = defineProps({
@@ -59,7 +59,7 @@ const imgStyle = computed(() => {
     <img
       v-if="!isGen"
       class="favicon-image"
-      :src="safeFaviconUrl(site.favicon) || getFaviconUrl(site.url)"
+      :src="resolveFaviconUrl(site.favicon, site.url)"
       decoding="async"
       loading="lazy"
       referrerpolicy="no-referrer"
