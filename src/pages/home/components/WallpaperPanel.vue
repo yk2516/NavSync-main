@@ -16,21 +16,20 @@ const folderSupported = isFolderPickerSupported()
  * n-drawer（naive-ui 2.34）自身没有 Esc 关闭逻辑 —— 源码里搜不到 Escape，
  * 而抽屉带 role="dialog" aria-modal="true"，键盘用户不该只能一路 Tab 去找右上角的 ×。
  * 这里自己挂一个全局 Esc 监听，只在面板打开时生效。
+ *
+ * 监听在挂载时就装上、由回调自己判断开没开，**不要**改成 `watch(panelVisible)` 里注册：
+ * 本组件现在是「第一次打开才挂载」（`useLazyMount`），挂载那一刻 `panelVisible` 已经是 true，
+ * 非 immediate 的 watch 因为「值没有发生变化」永远不会触发，监听就永远装不上 ——
+ * 表现是首次打开后按 Esc 关不掉（第二次打开反而正常，因为那时值会真的变化）。
  */
 function onPanelKeydown(e: KeyboardEvent) {
-  if (e.key !== 'Escape')
+  if (e.key !== 'Escape' || !wallpaperStore.panelVisible)
     return
   e.stopPropagation()
   wallpaperStore.closePanel()
 }
 
-watch(() => wallpaperStore.panelVisible, (visible) => {
-  if (visible)
-    window.addEventListener('keydown', onPanelKeydown)
-  else
-    window.removeEventListener('keydown', onPanelKeydown)
-})
-
+onMounted(() => window.addEventListener('keydown', onPanelKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onPanelKeydown))
 
 function openFilePicker() {

@@ -3,10 +3,18 @@ import MainHeader from './components/MainHeader.vue'
 import MainClock from './components/MainClock.vue'
 import MainSearch from './components/MainSearch.vue'
 import SiteContainer from './components/SiteContainer.vue'
-import MainSetting from './components/MainSetting.vue'
-import WallpaperPanel from './components/WallpaperPanel.vue'
 import WallpaperFan from './components/WallpaperFan.vue'
 import { toggleSiteSytle } from '@/composables/dark'
+import { prefetchOnIdle, useLazyMount } from '@/composables/lazyMount'
+
+/**
+ * 首屏只静态导入「访客第一眼就会看到」的东西（头部、时钟、搜索框、导航、小风车）。
+ * 下面两个都只有站长在 /setting 或主动点开时才会用到，静态导入会让访客替站长买单 ——
+ * 它们连同 MainSetting 依赖的 SettingSelection / CloudSync / AdminGate / ResetModal
+ * 一起，是首屏 48 个请求里的一大半。
+ */
+const MainSetting = defineAsyncComponent(() => import('./components/MainSetting.vue'))
+const WallpaperPanel = defineAsyncComponent(() => import('./components/WallpaperPanel.vue'))
 
 defineOptions({
   name: 'HomePage',
@@ -17,6 +25,15 @@ toggleSiteSytle()
 const settingStore = useSettingStore()
 const adminStore = useAdminStore()
 const viewerStore = useViewerStore()
+const wallpaperStore = useWallpaperStore()
+
+/** 壁纸面板要挂着才能播抽屉进出动画，所以用「第一次打开才挂载」而不是纯 v-if */
+const panelMounted = useLazyMount(() => wallpaperStore.panelVisible)
+
+onMounted(() => {
+  // 首屏画完再预取，点开面板时不用等；不预取 MainSetting —— 那是 /setting 页才用的
+  prefetchOnIdle(() => import('./components/WallpaperPanel.vue'))
+})
 </script>
 
 <template>
@@ -34,9 +51,10 @@ const viewerStore = useViewerStore()
           正在加载导航…
         </div>
       </template>
-      <MainSetting />
-      <!-- 管理员和访客都可使用的本地壁纸面板 -->
-      <WallpaperPanel />
+      <!-- 只有站长在 /setting（或访客停在 /setting 的口令门）时才需要，首页访客不加载 -->
+      <MainSetting v-if="adminStore.isGate || settingStore.isSetting" />
+      <!-- 管理员和访客都可使用的本地壁纸面板：第一次点开才挂载 -->
+      <WallpaperPanel v-if="panelMounted" />
       <!-- 右下角小风车：点一下随机换一张壁纸 -->
       <WallpaperFan v-if="!settingStore.isSetting && !adminStore.isGate" />
       <TheFooter v-if="!adminStore.isGate" />
