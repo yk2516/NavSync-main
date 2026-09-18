@@ -19,6 +19,12 @@ const selectedIndex = ref(0)
 
 const searchInputRef = ref<HTMLInputElement>()
 
+/**
+ * 引擎条默认收起，点搜索框里的引擎图标才展开。
+ * 常驻一排图标会把页面压得很重，用户明确要求收起来。
+ */
+const engineBarVisible = ref(false)
+
 const engines = computed(() => engineStore.engines)
 
 function initCurrentIndex() {
@@ -54,6 +60,19 @@ function _getFavicon(search: Search) {
 function selectEngine(i: number) {
   currentIndex.value = i
   settingStore.setSettings({ search: engines.value[i].enName })
+  engineBarVisible.value = false
+}
+
+function toggleEngineBar() {
+  const next = !engineBarVisible.value
+  engineBarVisible.value = next
+  // 引擎条和关键词联想都在搜索框下方，同时出现会打架
+  if (next)
+    clearNoticeKey()
+}
+
+function closeEngineBar() {
+  engineBarVisible.value = false
 }
 
 const { iconStyle } = useIconStyle()
@@ -110,6 +129,8 @@ function handleInput(_e: Event) {
   }
   showKeyDownSel.value = true
   selectedIndex.value = 0
+  // 联想列表出现时收起引擎条，两者都在搜索框下方
+  engineBarVisible.value = false
   requestEngApi()
 }
 
@@ -179,6 +200,8 @@ const addError = ref('')
 
 function openAddEngine() {
   addError.value = ''
+  // 收起引擎条，避免它留在弹窗蒙层底下
+  engineBarVisible.value = false
   addVisible.value = true
 }
 
@@ -235,13 +258,19 @@ function deleteCustomEngine(enName: string) {
           </div>
         </div>
 
-        <!-- 当前引擎图标：只作指示，切换交给下方横排图标条 -->
-        <div relative flex-center w-44 class="search-sel">
+        <!-- 当前引擎图标：点它展开下方的引擎列表 -->
+        <button
+          type="button"
+          class="search-sel engine-trigger"
+          :class="{ 'engine-trigger--open': engineBarVisible }"
+          :title="`当前搜索引擎：${engines[currentIndex]?.name || ''}（点击切换）`"
+          @click="toggleEngineBar"
+        >
           <img
             decoding="async" loading="lazy" :src="_getFavicon(engines[currentIndex] || engines[0])" :style="iconStyle"
             circle h-26 w-26 class="engine-current"
           >
-        </div>
+        </button>
 
         <div flex items-center class="search-input-holder">
           <input
@@ -269,23 +298,26 @@ function deleteCustomEngine(enName: string) {
         </div>
       </div>
 
-      <!-- 搜索引擎横排：仿极光Tab，图标并排、可横向滚动、末尾 + 号自定义添加 -->
-      <div class="engine-bar">
-        <button
-          v-for="(engine, i) in engines"
-          :key="engine.enName"
-          type="button"
-          class="engine-item"
-          :class="{ 'engine-item--active': currentIndex === i }"
-          :title="engine.name"
-          @click="selectEngine(i)"
-        >
-          <img decoding="async" loading="lazy" :src="_getFavicon(engine)" :style="iconStyle" alt="">
-        </button>
-        <button type="button" class="engine-item engine-item--add" title="添加搜索引擎" @click="openAddEngine">
-          <div i-carbon:add />
-        </button>
-      </div>
+      <!-- 搜索引擎横排：默认收起，点搜索框里的引擎图标才展开。
+           仿极光Tab，图标并排、可横向滚动、末尾 + 号自定义添加 -->
+      <Transition name="engine-bar">
+        <div v-show="engineBarVisible" v-on-click-outside="closeEngineBar" class="engine-bar">
+          <button
+            v-for="(engine, i) in engines"
+            :key="engine.enName"
+            type="button"
+            class="engine-item"
+            :class="{ 'engine-item--active': currentIndex === i }"
+            :title="engine.name"
+            @click="selectEngine(i)"
+          >
+            <img decoding="async" loading="lazy" :src="_getFavicon(engine)" :style="iconStyle" alt="">
+          </button>
+          <button type="button" class="engine-item engine-item--add" title="添加搜索引擎" @click="openAddEngine">
+            <div i-carbon:add />
+          </button>
+        </div>
+      </Transition>
     </div>
 
     <!-- 自定义搜索引擎 -->
@@ -386,6 +418,32 @@ function deleteCustomEngine(enName: string) {
   margin: auto;
 }
 
+/* 搜索框内的引擎图标：点它展开/收起下方的引擎条 */
+.engine-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  flex: 0 0 44px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color .2s ease;
+}
+
+.engine-trigger:hover {
+  background-color: color-mix(in srgb, var(--text-c) 12%, transparent);
+}
+
+.engine-trigger--open {
+  background-color: color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 20%, transparent);
+}
+
 .search-go {
   background-color: var(--primary-c);
   opacity: .85;
@@ -413,6 +471,18 @@ function deleteCustomEngine(enName: string) {
 
 .engine-bar::-webkit-scrollbar {
   display: none;
+}
+
+/* 展开/收起：引擎条走正常文档流（不覆盖内容），加个短过渡避免生硬跳动 */
+.engine-bar-enter-active,
+.engine-bar-leave-active {
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+.engine-bar-enter-from,
+.engine-bar-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 .engine-item {
