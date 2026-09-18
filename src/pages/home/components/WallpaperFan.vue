@@ -5,6 +5,34 @@ const wallpaperStore = useWallpaperStore()
 
 const spinning = ref(false)
 
+/** IndexedDB / 文件系统 API 在个别环境下可能长时间不回调，不能让它卡住换图 */
+const FOLDER_RESTORE_TIMEOUT = 1200
+
+function withTimeout<T>(task: Promise<T>, ms: number): Promise<T | undefined> {
+  return Promise.race([
+    task.catch(() => undefined),
+    new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), ms)),
+  ])
+}
+
+/**
+ * 刷新后目录句柄还在 IndexedDB 里，但权限会退回 prompt。
+ * 点击本身就是用户手势，正好可以在这里重新授权并重新读取图片列表。
+ */
+async function restoreFolderImages() {
+  const handle = await withTimeout(loadWallpaperDirectory(), FOLDER_RESTORE_TIMEOUT)
+  if (!handle)
+    return false
+  const granted = await withTimeout(ensureReadPermission(handle), FOLDER_RESTORE_TIMEOUT)
+  if (!granted)
+    return false
+  const files = await withTimeout(listImagesInDirectory(handle), 4000)
+  if (!files?.length)
+    return false
+  wallpaperStore.setFolderImages(files, handle.name || wallpaperStore.settings.folderName)
+  return true
+}
+
 /**
  * 小风车：点一下随机换一张壁纸。
  * 优先用「选择文件夹」授权的图片；没有文件夹就按壁纸源网站重新拉一张。
@@ -14,15 +42,10 @@ async function spin() {
     return
   spinning.value = true
   try {
-    // 刷新后目录句柄还在，但权限会退回 prompt；点击本身就是用户手势，可以在这里重新授权
-    if (!wallpaperStore.folderImages.length) {
-      const handle = await loadWallpaperDirectory()
-      if (handle && await ensureReadPermission(handle)) {
-        const files = await listImagesInDirectory(handle)
-        if (files.length)
-          wallpaperStore.setFolderImages(files, handle.name || wallpaperStore.settings.folderName)
-      }
-    }
+    // 只有用户之前真的选过文件夹才去读 IndexedDB：
+    // 没选过就走不到这条路，避免白白等一次异步存储
+    if (!wallpaperStore.folderImages.length && wallpaperStore.settings.folderName)
+      await restoreFolderImages()
 
     const result = wallpaperStore.shuffleWallpaper()
     if (result === 'none')
