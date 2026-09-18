@@ -7,8 +7,8 @@
 ## 功能
 
 - 个性主题切换（月白、初春、瀚海、大漠）
-- 网址自定义（鼠标拖动排序）
-- 搜索引擎自定义（百度、必应、谷歌、搜狗、维基百科）
+- 网址与分类自定义（鼠标拖动排序，分类即顶部的二级导航标签）
+- 搜索引擎自定义（内置百度、必应、谷歌、搜狗、维基百科，也可自行增删改）
 - 搜索词自动提示
 - 图标风格切换（鲜艳、朴素、灰白）
 - 色彩模式切换（系统自动、夜间模式、日间模式）
@@ -18,6 +18,8 @@
 - **暴力破解防护**（5 次口令错误后锁定 15 分钟）
 - **跨设备自动同步**（换设备后自动查找云端已有配置，无需手动同步 ID）
 - **壁纸与外观设置**（站长和访客都可设置皮肤、强调色、本地图片、图片 URL、渐变、透明度、模糊和玻璃效果）
+- **壁纸文件夹随机播放**（授权一个本地文件夹后，点页面右下角的小风车即可随机换一张）
+- **站点布局自定义**（每页行数 / 列数、行间距 / 列间距，以及图标大小、圆角、透明度）
 - **Favicon 懒加载**（新增网站后自动按域名获取独立 Favicon，固定请求 80x80、渲染 64x64，加载失败回退首字母彩色图标）
 - **Favicon 代理 + KV 缓存**（后端统一代理第三方图标源，KV 缓存 30 天，同一域名仅回源一次）
 - **站长 / 访客双身份**（站长可编辑与同步，访客全程只读，且直接看到站长云端配置的导航页；壁纸属于各自设备的本地外观设置）
@@ -55,7 +57,7 @@
 
 **站长改动后记得点一次「上传到云端」**，访客端才会看到导航内容更新（公开接口有 60 秒边缘缓存）。
 
-壁纸和外观属于本地设备设置：站长和访客都可以点击顶部图片按钮独立设置，不会覆盖对方的壁纸，也不会通过导航数据同步。
+壁纸和外观属于本地设备设置：站长和访客都可以在**桌面端**点击顶部右侧的壁纸按钮独立设置，不会覆盖对方的壁纸，也不会通过导航数据同步。（窄屏下这个按钮会隐藏，移动端只保留站长可见的设置齿轮。）
 
 新增网站时留空自定义图标地址，系统会根据网站域名自动获取对应 Favicon；上游按 80x80 请求，页面固定渲染为 64x64。若某个站点不支持图标，会回退显示彩色首字母。
 
@@ -243,23 +245,25 @@ npm run preview
 ## 项目结构
 
 ```
-├── functions/          # Cloudflare Pages Functions（后端 API）
+├── functions/          # Cloudflare Pages Functions（后端）
 │   ├── _shared.ts      # 共享工具：口令校验、限流、Gist 操作
-│   └── api/
-│       ├── status.ts          # GET  /api/status         — 服务状态
-│       ├── verify-password.ts # POST /api/verify-password — 口令验证
-│       ├── find-gist.ts       # GET  /api/find-gist      — 查找配置 Gist
-│       ├── upload.ts          # POST /api/upload          — 上传配置
-│       ├── download.ts        # GET  /api/download        — 下载配置
-│       ├── public-config.ts   # GET  /api/public-config   — 访客只读配置
-│       ├── user.ts            # GET  /api/user            — GitHub 用户信息
-│       └── favicon/           # Favicon 代理 + KV 缓存
+│   ├── api/            # 挂在 /api/* 下的接口
+│   │   ├── status.ts          # GET  /api/status          — 服务状态
+│   │   ├── verify-password.ts # POST /api/verify-password — 口令验证
+│   │   ├── find-gist.ts       # GET  /api/find-gist       — 查找配置 Gist
+│   │   ├── upload.ts          # POST /api/upload          — 上传配置
+│   │   ├── download.ts        # GET  /api/download        — 下载配置
+│   │   ├── public-config.ts   # GET  /api/public-config   — 访客只读配置
+│   │   └── user.ts            # GET  /api/user            — GitHub 用户信息
+│   └── favicon/[id].ts        # GET  /favicon/{域名}.png  — 图标代理 + KV 缓存
+│                              #     注意：路由是 /favicon/，不在 /api/ 下
 ├── src/                # 前端源码
 │   ├── stores/         # Pinia stores（admin / viewer / wallpaper / site / setting / ...）
 │   ├── composables/    # 组合式函数（bootstrap / dark / ...）
 │   ├── utils/          # 工具函数（cloud / publicConfig / favicon / ...）
-│   ├── pages/          # 页面（home / setting）
-│   │   └── home/components/WallpaperPanel.vue # 壁纸与外观面板
+│   ├── pages/          # 页面（只有 home）
+│   │   └── home/       # 首页；/setting 是它内部用 <route> 块声明的子路由，
+│   │                   #   渲染 Blank.vue 占位，用于访客停在口令输入界面
 │   └── components/     # 组件
 ├── public/             # 静态资源
 ├── .env.example        # 环境变量配置参考
