@@ -4,7 +4,12 @@
  * 工作流程：
  *   1. 请求到达 → 先查 KV 缓存，命中直接返回（含正确的 Content-Type）
  *   2. 未命中 → 后端代理请求第三方图标源（Google / DuckDuckGo / 0x3）
- *   3. 成功 → 写入 KV 缓存（默认 30 天）并返回；失败 → 返回 5xx，前端降级为首字母
+ *   3. 成功 → 写入 KV 缓存（默认 30 天）并返回
+ *   4. 失败 → 前端统一降级为首字母图标，具体状态码分三类：
+ *        - 上游有响应但状态非 2xx → **透传上游状态码**（如 404 表示该站点确实没有图标，
+ *          比统一改写成 502 更准确，也便于排查）
+ *        - 上游响应异常（空体 / 非 image/*）→ 502
+ *        - 上游超时（AbortError）→ 504
  *
  * 并发保护：
  *   - 同一域名的并发回源请求单飞（in-flight 去重），仅回源一次后共享结果
@@ -93,7 +98,10 @@ async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
   }
 }
 
-/** 回源失败（携带 HTTP 状态码，供上层返回 502/504） */
+/**
+ * 回源失败（携带 HTTP 状态码）
+ * 状态码来源有两类：上游非 2xx 时透传上游状态码；本地校验失败（空体 / 非图片）时用 502。
+ */
 class UpstreamError extends Error {
   status: number
   constructor(status: number, message: string) {
