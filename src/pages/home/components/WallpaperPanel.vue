@@ -12,6 +12,27 @@ const imageError = ref('')
 const settings = computed(() => wallpaperStore.settings)
 const folderSupported = isFolderPickerSupported()
 
+/**
+ * n-drawer（naive-ui 2.34）自身没有 Esc 关闭逻辑 —— 源码里搜不到 Escape，
+ * 而抽屉带 role="dialog" aria-modal="true"，键盘用户不该只能一路 Tab 去找右上角的 ×。
+ * 这里自己挂一个全局 Esc 监听，只在面板打开时生效。
+ */
+function onPanelKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Escape')
+    return
+  e.stopPropagation()
+  wallpaperStore.closePanel()
+}
+
+watch(() => wallpaperStore.panelVisible, (visible) => {
+  if (visible)
+    window.addEventListener('keydown', onPanelKeydown)
+  else
+    window.removeEventListener('keydown', onPanelKeydown)
+})
+
+onBeforeUnmount(() => window.removeEventListener('keydown', onPanelKeydown))
+
 function openFilePicker() {
   fileInput.value?.click()
 }
@@ -219,7 +240,11 @@ function formatPercent(value: number) {
 
           <div v-if="settings.recentImages.length" class="recent-row">
             <span class="recent-label">最近使用</span>
-            <button v-for="image in settings.recentImages" :key="image" type="button" class="recent-image" @click="selectRecent(image)">
+            <button
+              v-for="(image, ri) in settings.recentImages" :key="image" type="button" class="recent-image"
+              :title="`使用最近的第 ${ri + 1} 张壁纸`" :aria-label="`使用最近的第 ${ri + 1} 张壁纸`"
+              @click="selectRecent(image)"
+            >
               <img :src="image" alt="最近使用的壁纸">
             </button>
           </div>

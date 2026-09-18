@@ -75,6 +75,7 @@ function handleAllCommit(_e: Event) {
             class="site-icon-color site-icon-color--none"
             :class="{ active: !modalStore.inputValues.bgColor }"
             title="无底色"
+            aria-label="无底色"
             @click="modalStore.inputValues.bgColor = ''"
           />
           <button
@@ -85,6 +86,7 @@ function handleAllCommit(_e: Event) {
             :class="{ active: modalStore.inputValues.bgColor?.toLowerCase() === color }"
             :style="{ backgroundColor: color }"
             :title="color"
+            :aria-label="`图标底色 ${color}`"
             @click="pickColor(color)"
           />
           <label class="site-icon-color site-icon-color--custom" title="自定义颜色">

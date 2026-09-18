@@ -101,7 +101,11 @@ const renderStore = useRenderStore()
               </template>
               <template #footer>
                 <div v-if="!settingStore.isDragging && settingStore.isSetting && currentGroupList[i].siteList.length < 6" min-h-32>
-                  <n-button class="h-full" type="primary" secondary :focusable="false" @click="modalStore.showModal('add', 'site', i)">
+                  <n-button
+                    class="h-full" type="primary" secondary :focusable="false"
+                    title="添加站点" aria-label="添加站点"
+                    @click="modalStore.showModal('add', 'site', i)"
+                  >
                     <template #icon>
                       <div i-carbon:add />
                     </template>
@@ -115,7 +119,11 @@ const renderStore = useRenderStore()
     </draggable>
     <!-- Add group button -->
     <div v-if="addGroupVisible" my-20 md="my-32" lg="my-32">
-      <n-button type="primary" secondary w-full :focusable="false" @click="modalStore.showModal('add', 'group')">
+      <n-button
+        type="primary" secondary w-full :focusable="false"
+        title="添加分组" aria-label="添加分组"
+        @click="modalStore.showModal('add', 'group')"
+      >
         <template #icon>
           <div i-carbon:add />
         </template>

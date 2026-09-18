@@ -73,6 +73,8 @@ function handleDragEnd(e: any) {
       size="small"
       :focusable="false"
       secondary
+      title="添加分类"
+      aria-label="添加分类"
       @click="modalStore.showModal('add', 'cate')"
     >
       <template #icon>

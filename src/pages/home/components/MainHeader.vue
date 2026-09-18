@@ -18,10 +18,11 @@ function getIconClass(routeName: string) {
 
 <template>
   <div class="main-header" flex items-center justify-between py-24 px="12 md:24 lg:48">
-    <!-- 左上角站点 logo（循环箭头），移动端隐藏 -->
-    <RouterLink to="/" class="header-desktop-only">
+    <!-- 左上角站点 logo（循环箭头），移动端隐藏。
+         链接里只有一张图，若不给可访问名称，读屏会读成「链接」而不说明去哪 -->
+    <RouterLink to="/" class="header-desktop-only" title="返回首页" aria-label="返回首页">
       <div text="$primary-c" flex-center text-16 style="font-weight: bold;">
-        <img decoding="async" loading="lazy" src="/favicon.png" inline-block text-32 transition duration-300 w-32 hover="opacity-70">
+        <img decoding="async" loading="lazy" src="/favicon.png" alt="NavSync" inline-block text-32 transition duration-300 w-32 hover="opacity-70">
       </div>
     </RouterLink>
     <!-- ml-auto：移动端 logo 隐藏后，右侧按钮组仍靠右 -->
@@ -32,6 +33,8 @@ function getIconClass(routeName: string) {
         class="header-icon-button"
         :class="getIconClass('setting')"
         :to="toggleSetting() ? '/' : '/setting'"
+        title="设置"
+        aria-label="设置"
         i-carbon:settings
         icon-btn
       />

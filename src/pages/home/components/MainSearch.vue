@@ -289,12 +289,17 @@ function deleteCustomEngine(enName: string) {
         </div>
         <div v-if="keyword?.length > 0" flex-center gap-x-4 w-44>
           <div
+            role="button" tabindex="0"
+            title="清空" aria-label="清空"
             hover="op-80 rotate-180 scale-110"
-            i-carbon:close mx-0 cursor-pointer text-20 op-40 transition duration-300 w-44 @click="handleCloseClick"
+            i-carbon:close mx-0 cursor-pointer text-20 op-40 transition duration-300 w-44
+            @click="handleCloseClick"
+            @keydown.enter.prevent="handleCloseClick"
+            @keydown.space.prevent="handleCloseClick"
           />
         </div>
         <div v-if="keyword?.length === 0" flex-center cursor-pointer gap-x-4 w-44 class="search-img" style="background: transparent;" @click="search">
-          <span md="text-15" lg="text-15" i-carbon:search inline-block text-14 h-20 w-44 class="search-go" />
+          <span md="text-15" lg="text-15" i-carbon:search inline-block text-14 h-20 w-44 class="search-go" role="button" tabindex="0" title="搜索" aria-label="搜索" @keydown.enter.prevent="search" @keydown.space.prevent="search" />
         </div>
       </div>
 
