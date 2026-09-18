@@ -38,24 +38,44 @@ export const useSearchEngineStore = defineStore('searchEngine', () => {
     }
   }
 
-  function addEngine(input: { name: string; url: string; key: string; favicon?: string }) {
+  function normalize(input: { name: string; url: string; key: string; favicon?: string }) {
     const name = input.name.trim()
     let url = input.url.trim()
     if (!name || !url)
-      return false
+      return undefined
     if (!/^https?:\/\//i.test(url))
       url = `https://${url}`
+    return { name, url, key: (input.key || 'q').trim(), favicon: input.favicon?.trim() || '' }
+  }
 
-    const engine: Search = {
-      name,
-      enName: `custom-${Date.now()}`,
-      url,
-      key: (input.key || 'q').trim(),
-      favicon: input.favicon?.trim() || '',
-    }
+  function addEngine(input: { name: string; url: string; key: string; favicon?: string }) {
+    const fields = normalize(input)
+    if (!fields)
+      return false
+
+    const engine: Search = { ...fields, enName: `custom-${Date.now()}` }
     custom.value.push(engine)
     persist()
     return engine.enName
+  }
+
+  /**
+   * 编辑已添加的引擎。
+   * 保留原 enName（它是「当前选中的引擎」在 settings.search 里的标识），
+   * 否则改完名字选中项会丢、搜索框图标会跳回第一个。
+   */
+  function updateEngine(enName: string, input: { name: string; url: string; key: string; favicon?: string }) {
+    const index = custom.value.findIndex(item => item.enName === enName)
+    if (index === -1)
+      return false
+    const fields = normalize(input)
+    if (!fields)
+      return false
+
+    // 整体替换而不是就地改属性：确保数组级依赖（engines 计算属性）一定被触发
+    custom.value.splice(index, 1, { ...custom.value[index], ...fields })
+    persist()
+    return true
   }
 
   function removeEngine(enName: string) {
@@ -80,6 +100,7 @@ export const useSearchEngineStore = defineStore('searchEngine', () => {
     builtin,
     engines,
     addEngine,
+    updateEngine,
     removeEngine,
     isCustom,
     findEngine,

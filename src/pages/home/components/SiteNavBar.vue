@@ -94,7 +94,7 @@ function handleDragEnd(e: any) {
 
 <style lang="scss" scoped>
 .cate-nav {
-  padding-bottom: 26px;
+  padding-bottom: 12px;
 }
 
 .cate-nav__list {
@@ -169,7 +169,7 @@ function handleDragEnd(e: any) {
 
 @media screen and (max-width: 640px) {
   .cate-nav {
-    padding-bottom: 18px;
+    padding-bottom: 10px;
   }
 
   .cate-tab {

@@ -192,48 +192,119 @@ function setInactive(_i: number) {
   selectedIndex.value = 0
 }
 
-// ---------- 自定义搜索引擎 ----------
+// ---------- 自定义搜索引擎（添加 / 编辑 / 删除）----------
 
-const addVisible = ref(false)
+const manageVisible = ref(false)
 const addForm = reactive({ name: '', url: '', key: 'q', favicon: '' })
-const addError = ref('')
+const formError = ref('')
+/** 非空表示当前是「编辑已有引擎」，空字符串表示「新增」 */
+const editingEnName = ref('')
+/** 待确认删除的引擎，做二次确认避免误删 */
+const pendingDelete = ref('')
 
-function openAddEngine() {
-  addError.value = ''
-  // 收起引擎条，避免它留在弹窗蒙层底下
-  engineBarVisible.value = false
-  addVisible.value = true
-}
+const isEditing = computed(() => !!editingEnName.value)
 
-function submitAddEngine() {
-  if (!addForm.name.trim() || !addForm.url.trim()) {
-    addError.value = '名称与搜索地址必填'
-    return
-  }
-  const enName = engineStore.addEngine({ ...addForm })
-  if (!enName) {
-    addError.value = '添加失败，请检查填写内容'
-    return
-  }
-  addVisible.value = false
+function resetEngineForm() {
   addForm.name = ''
   addForm.url = ''
   addForm.key = 'q'
   addForm.favicon = ''
+  formError.value = ''
+  editingEnName.value = ''
+  pendingDelete.value = ''
+}
+
+function openAddEngine() {
+  resetEngineForm()
+  // 收起引擎条，避免它留在弹窗蒙层底下
+  engineBarVisible.value = false
+  manageVisible.value = true
+}
+
+/** 打开管理弹窗并直接把某个自定义引擎填进表单，随时可改 */
+function openEditEngine(enName: string) {
+  const engine = engineStore.custom.find(item => item.enName === enName)
+  if (!engine)
+    return
+  engineBarVisible.value = false
+  pendingDelete.value = ''
+  formError.value = ''
+  editingEnName.value = enName
+  addForm.name = engine.name
+  addForm.url = engine.url
+  addForm.key = engine.key || 'q'
+  addForm.favicon = engine.favicon || ''
+  manageVisible.value = true
+}
+
+function cancelEdit() {
+  resetEngineForm()
+}
+
+function submitEngine() {
+  if (!addForm.name.trim() || !addForm.url.trim()) {
+    formError.value = '名称与搜索地址必填'
+    return
+  }
+
+  if (isEditing.value) {
+    const target = editingEnName.value
+    if (!engineStore.updateEngine(target, { ...addForm })) {
+      formError.value = '保存失败，请检查填写内容'
+      return
+    }
+    resetEngineForm()
+    window.$message?.success('已保存修改', { duration: 2000 })
+    return
+  }
+
+  const enName = engineStore.addEngine({ ...addForm })
+  if (!enName) {
+    formError.value = '添加失败，请检查填写内容'
+    return
+  }
+  resetEngineForm()
   const idx = engines.value.findIndex(item => item.enName === enName)
   if (idx >= 0)
     selectEngine(idx)
   window.$message?.success('已添加搜索引擎', { duration: 2000 })
 }
 
+/**
+ * 删除自定义引擎。
+ * 若删掉的正是当前选中的引擎，要回落到第一个可用引擎，
+ * 否则搜索框图标会指向一个已经不存在的项。
+ */
 function deleteCustomEngine(enName: string) {
   const wasActive = engines.value[currentIndex.value]?.enName === enName
   engineStore.removeEngine(enName)
+  pendingDelete.value = ''
+  // 正在编辑的那条被删了，表单要退回「新增」状态，否则保存会失败
+  if (editingEnName.value === enName)
+    resetEngineForm()
   if (wasActive) {
     currentIndex.value = 0
     settingStore.setSettings({ search: engines.value[0]?.enName || 'Baidu' })
   }
+  window.$message?.success('已删除', { duration: 2000 })
 }
+
+/**
+ * 右键自定义引擎直接进入编辑。
+ * 这是「随时可改」的快捷入口，内置引擎不响应（右键仍走浏览器默认菜单）。
+ */
+function handleEngineContextMenu(e: MouseEvent, enName: string) {
+  if (!engineStore.isCustom(enName))
+    return
+  e.preventDefault()
+  openEditEngine(enName)
+}
+
+// 关掉管理弹窗时把表单复位，避免下次打开还留着上次编辑到一半的内容
+watch(manageVisible, (visible) => {
+  if (!visible)
+    resetEngineForm()
+})
 </script>
 
 <template>
@@ -304,7 +375,8 @@ function deleteCustomEngine(enName: string) {
       </div>
 
       <!-- 搜索引擎横排：默认收起，点搜索框里的引擎图标才展开。
-           仿极光Tab，图标并排、可横向滚动、末尾 + 号自定义添加 -->
+           仿极光Tab，图标并排、可横向滚动、末尾 + 号自定义添加；
+           自定义引擎右键可直接编辑 -->
       <Transition name="engine-bar">
         <div v-show="engineBarVisible" v-on-click-outside="closeEngineBar" class="engine-bar">
           <button
@@ -313,20 +385,25 @@ function deleteCustomEngine(enName: string) {
             type="button"
             class="engine-item"
             :class="{ 'engine-item--active': currentIndex === i }"
-            :title="engine.name"
+            :title="engineStore.isCustom(engine.enName) ? `${engine.name}（右键编辑）` : engine.name"
             @click="selectEngine(i)"
+            @contextmenu="handleEngineContextMenu($event, engine.enName)"
           >
             <img decoding="async" loading="lazy" :src="_getFavicon(engine)" :style="iconStyle" alt="">
           </button>
-          <button type="button" class="engine-item engine-item--add" title="添加搜索引擎" @click="openAddEngine">
+          <button type="button" class="engine-item engine-item--add" title="添加或管理搜索引擎" aria-label="添加或管理搜索引擎" @click="openAddEngine">
             <div i-carbon:add />
           </button>
         </div>
       </Transition>
     </div>
 
-    <!-- 自定义搜索引擎 -->
-    <n-modal v-model:show="addVisible" preset="card" title="添加搜索引擎" :style="{ width: 'min(460px, calc(100vw - 32px))' }" :bordered="false">
+    <!-- 自定义搜索引擎：添加 + 管理（编辑 / 删除）合一 -->
+    <n-modal
+      v-model:show="manageVisible" preset="card" :bordered="false"
+      :title="isEditing ? '编辑搜索引擎' : '添加搜索引擎'"
+      :style="{ width: 'min(460px, calc(100vw - 32px))' }"
+    >
       <div class="engine-form">
         <label>
           <span>名称</span>
@@ -347,30 +424,50 @@ function deleteCustomEngine(enName: string) {
         <p class="engine-form__tip">
           在目标站搜索一次，地址栏里 <code>?</code> 后面那个参数名就是要填的「关键词参数」，比如 <code>?wd=xxx</code> 填 <code>wd</code>。
         </p>
-        <div v-if="addError" class="engine-form__error">
-          {{ addError }}
+        <div v-if="formError" class="engine-form__error">
+          {{ formError }}
         </div>
 
         <div v-if="engineStore.custom.length" class="engine-form__list">
           <div class="engine-form__list-title">
-            已添加
+            已添加 {{ engineStore.custom.length }} 个（可随时编辑或删除）
           </div>
-          <div v-for="item in engineStore.custom" :key="item.enName" class="engine-form__row">
+          <div
+            v-for="item in engineStore.custom" :key="item.enName" class="engine-form__row"
+            :class="{ 'engine-form__row--editing': item.enName === editingEnName }"
+          >
             <img decoding="async" :src="_getFavicon(item)" alt="">
-            <span>{{ item.name }}</span>
-            <button type="button" @click="deleteCustomEngine(item.enName)">
-              删除
-            </button>
+            <span :title="item.url">{{ item.name }}</span>
+            <template v-if="pendingDelete === item.enName">
+              <em class="engine-form__confirm">确定删除？</em>
+              <button type="button" class="engine-form__danger" @click="deleteCustomEngine(item.enName)">
+                删除
+              </button>
+              <button type="button" @click="pendingDelete = ''">
+                取消
+              </button>
+            </template>
+            <template v-else>
+              <button type="button" @click="openEditEngine(item.enName)">
+                编辑
+              </button>
+              <button type="button" class="engine-form__danger" @click="pendingDelete = item.enName">
+                删除
+              </button>
+            </template>
           </div>
         </div>
       </div>
       <template #footer>
         <div flex justify-end gap-x-12>
-          <n-button quaternary @click="addVisible = false">
-            取消
+          <n-button v-if="isEditing" quaternary @click="cancelEdit">
+            取消编辑
           </n-button>
-          <n-button type="primary" text-color="#fff" @click="submitAddEngine">
-            添加
+          <n-button quaternary @click="manageVisible = false">
+            关闭
+          </n-button>
+          <n-button type="primary" text-color="#fff" @click="submitEngine">
+            {{ isEditing ? '保存修改' : '添加' }}
           </n-button>
         </div>
       </template>
@@ -583,7 +680,14 @@ function deleteCustomEngine(enName: string) {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
   font-size: 13px;
+}
+
+/* 正在编辑的那一行给出明确标记，避免「改的是哪一条」搞混 */
+.engine-form__row--editing {
+  background-color: color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 14%, transparent);
 }
 
 .engine-form__row img {
@@ -599,12 +703,33 @@ function deleteCustomEngine(enName: string) {
   text-overflow: ellipsis;
 }
 
-.engine-form__row button {
-  border: 0;
-  background: transparent;
-  color: #d03050;
+.engine-form__confirm {
   font-size: 12px;
+  font-style: normal;
+  color: #d03050;
+}
+
+.engine-form__row button {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  opacity: .72;
   cursor: pointer;
+  transition: opacity .2s ease, background-color .2s ease;
+}
+
+.engine-form__row button:hover {
+  opacity: 1;
+  background-color: color-mix(in srgb, var(--text-c) 12%, transparent);
+}
+
+.engine-form__row button.engine-form__danger {
+  color: #d03050;
+  opacity: .9;
 }
 
 @media screen and (max-width: 640px) {

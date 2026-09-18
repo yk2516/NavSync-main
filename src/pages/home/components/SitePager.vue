@@ -18,16 +18,15 @@ const perPage = computed(() => {
 
 interface Page {
   key: string
+  /** 所属分组标识：同一分组被拆成多页时用它归并成一个二级导航项 */
+  groupKey: string
   name: string
   sites: Site[]
-  /** 同一分组被拆到第二页及以后 */
-  continued: boolean
 }
 
 /**
  * 一个分组一页。
- * 站点数超过一页容量时自动续页（续页标题带「（续）」），
- * 空分组在浏览态不占页 —— 否则访客会翻到一整页空白。
+ * 站点数超过一页容量时自动续页，空分组在浏览态不占页 —— 否则访客会翻到一整页空白。
  */
 const pages = computed<Page[]>(() => {
   const groups = siteStore.currentCateData.groupList || []
@@ -37,13 +36,14 @@ const pages = computed<Page[]>(() => {
     const sites = group.siteList || []
     if (!sites.length)
       return
+    const groupKey = String(group.id ?? gi)
     const chunks = Math.ceil(sites.length / size)
     for (let c = 0; c < chunks; c++) {
       result.push({
-        key: `${group.id ?? gi}-${c}`,
+        key: `${groupKey}-${c}`,
+        groupKey,
         name: group.name,
         sites: sites.slice(c * size, (c + 1) * size),
-        continued: c > 0,
       })
     }
   })
@@ -52,6 +52,22 @@ const pages = computed<Page[]>(() => {
 
 const pageCount = computed(() => pages.value.length)
 const pageIndex = ref(0)
+
+/** 当前页所属分组，用于给二级导航打高亮 */
+const activeGroupKey = computed(() => pages.value[pageIndex.value]?.groupKey)
+
+/**
+ * 二级导航项：当前一级分类下的**全部**分组，横排紧凑展示。
+ * 一个分组只出现一次（跨页的分组归并到它的第一页），点一下跳到该分组首页。
+ */
+const groupNav = computed(() => {
+  const seen = new Map<string, { key: string; name: string; pageIndex: number }>()
+  pages.value.forEach((page, i) => {
+    if (!seen.has(page.groupKey))
+      seen.set(page.groupKey, { key: page.groupKey, name: page.name, pageIndex: i })
+  })
+  return [...seen.values()]
+})
 
 // 切分类回到第一页，否则从「常用工具第 3 页」跳到只有 1 页的分类会看到空白
 watch(() => siteStore.cateIndex, () => {
@@ -190,6 +206,18 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else>
+      <div v-if="groupNav.length" class="group-nav">
+        <button
+          v-for="group in groupNav" :key="group.key" type="button" class="group-nav__item"
+          :class="{ 'group-nav__item--active': group.key === activeGroupKey }"
+          :aria-current="group.key === activeGroupKey ? 'true' : undefined"
+          :title="group.name"
+          @click="goTo(group.pageIndex)"
+        >
+          {{ group.name }}
+        </button>
+      </div>
+
       <div
         ref="viewportEl" class="pager__viewport"
         @touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd"
@@ -199,9 +227,6 @@ onBeforeUnmount(() => {
             v-for="(page, pi) in pages" :key="page.key" class="pager__page"
             :inert="pi !== pageIndex || undefined"
           >
-            <div class="pager__label">
-              {{ page.name }}<span v-if="page.continued" class="pager__label-continued">（续）</span>
-            </div>
             <div class="site-grid">
               <a
                 v-for="(site, si) in page.sites" :key="site.id ?? si"
@@ -215,11 +240,11 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div v-if="pageCount > 1" class="pager__dots" role="tablist" aria-label="分组翻页">
+      <div v-if="pageCount > 1" class="pager__dots">
         <button
           v-for="(page, pi) in pages" :key="page.key" type="button" class="pager__dot"
           :class="{ 'pager__dot--active': pi === pageIndex }"
-          role="tab" :aria-selected="pi === pageIndex"
+          :aria-current="pi === pageIndex ? 'true' : undefined"
           :title="`第 ${pi + 1} 页：${page.name}`" :aria-label="`第 ${pi + 1} 页：${page.name}`"
           @click="goTo(pi)"
         />
@@ -253,29 +278,45 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.pager__label {
+/* 二级导航：当前一级分类下的全部分组标题，横排紧凑铺开。
+ * 翻页（滚轮 / 圆点 / 方向键 / 触屏滑动）时高亮跟着当前页走。 */
+.group-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
+  justify-content: center;
+  gap: 2px 4px;
+  margin-bottom: 18px;
+}
+
+.group-nav__item {
+  padding: 3px 9px;
+  border: 0;
+  border-radius: 6px;
   font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-c);
+  background-color: transparent;
+  opacity: .58;
+  cursor: pointer;
+  transition: opacity .2s ease, color .2s ease, background-color .2s ease;
+}
+
+.group-nav__item:hover {
+  opacity: .9;
+  background-color: color-mix(in srgb, var(--main-bg-c) 46%, transparent);
+}
+
+.group-nav__item--active {
   font-weight: 600;
-  letter-spacing: .04em;
-  opacity: .62;
+  opacity: 1;
+  color: var(--wallpaper-accent, var(--primary-c));
+  background-color: color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 16%, transparent);
 }
 
-.pager__label::before {
-  content: '';
-  flex: 0 0 auto;
-  width: 14px;
-  height: 2px;
-  border-radius: 2px;
-  background-color: var(--wallpaper-accent, var(--primary-c));
-}
-
-.pager__label-continued {
-  font-weight: 400;
-  opacity: .7;
+.group-nav__item:focus-visible {
+  outline: 2px solid var(--wallpaper-accent, var(--primary-c));
+  outline-offset: 1px;
 }
 
 .pager__dots {
