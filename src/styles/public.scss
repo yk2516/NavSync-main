@@ -321,9 +321,16 @@ button,
   transition: background-color .18s ease, transform .18s ease;
 }
 
-.site-card:not(.site-card--dragging):hover {
+.site-card:not(.site-card--dragging):not(.site-card--invalid):hover {
   background-color: var(--site-hover-c);
   transform: translateY(-2px);
+}
+
+/* 链接非法（非 http/https）的站点卡片：不可点。
+ * 一定要有可见的视觉差异 —— 卡片点不动又没有任何反馈，用户只会以为坏了。 */
+.site-card--invalid {
+  cursor: not-allowed;
+  opacity: .45;
 }
 
 .site-card__name {

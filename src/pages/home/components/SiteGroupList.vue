@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import draggable from 'vuedraggable'
 import Favicon from './Favicon.vue'
+import { safeSiteUrl } from '@/utils'
 import type { Group, Site } from '@/types'
 
 /**
@@ -92,7 +93,7 @@ const renderStore = useRenderStore()
                     'site--setting': settingStore.isSetting,
                     'site-card--dragging': settingStore.isDragging,
                   }"
-                  :href="site.url" target="_blank"
+                  :href="safeSiteUrl(site.url) || undefined" target="_blank"
                   :title="site.name"
                   @click="e => handleSiteClick(site.url, i, index, e)"
                 >

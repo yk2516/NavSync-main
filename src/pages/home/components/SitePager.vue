@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Favicon from './Favicon.vue'
+import { safeSiteUrl } from '@/utils'
 import type { Site } from '@/types'
 
 const siteStore = useSiteStore()
@@ -16,12 +17,17 @@ const perPage = computed(() => {
   return rows * cols
 })
 
+interface PageSite extends Site {
+  /** 已过协议白名单的可点地址；空串表示链接非法（如 `javascript:`），卡片不可点 */
+  safeUrl: string
+}
+
 interface Page {
   key: string
   /** 所属分组标识：同一分组被拆成多页时用它归并成一个二级导航项 */
   groupKey: string
   name: string
-  sites: Site[]
+  sites: PageSite[]
 }
 
 /**
@@ -43,7 +49,10 @@ const pages = computed<Page[]>(() => {
         key: `${groupKey}-${c}`,
         groupKey,
         name: group.name,
-        sites: sites.slice(c * size, (c + 1) * size),
+        // 在这里统一过一遍协议白名单，模板里就不用重复调用：
+        // 站点数据可能来自导入的 JSON，未过滤的 `javascript:` 会在点击时于本站执行
+        sites: sites.slice(c * size, (c + 1) * size)
+          .map(site => ({ ...site, safeUrl: safeSiteUrl(site.url) })),
       })
     }
   })
@@ -79,6 +88,18 @@ watch(pageCount, (count) => {
   if (pageIndex.value > count - 1)
     pageIndex.value = Math.max(0, count - 1)
 })
+
+/**
+ * 非法链接（`javascript:` / `data:` 等）不导航，但**必须给出提示**。
+ * 卡片已经用 `.site-card--invalid` 变灰、鼠标变 not-allowed，
+ * 可光靠样式仍可能被当成「网站挂了」，说清楚原因才是完整的处理。
+ */
+function onSiteClick(e: MouseEvent, site: PageSite) {
+  if (!site.safeUrl) {
+    e.preventDefault()
+    window.$message?.error(`「${site.name}」的链接不是合法的 http/https 地址，请在设置里修改`, { duration: 3200 })
+  }
+}
 
 function goTo(index: number) {
   const max = Math.max(0, pageCount.value - 1)
@@ -230,7 +251,10 @@ onBeforeUnmount(() => {
             <div class="site-grid">
               <a
                 v-for="(site, si) in page.sites" :key="site.id ?? si"
-                class="site-card" :href="site.url" target="_blank" :title="site.name"
+                class="site-card" :class="{ 'site-card--invalid': !site.safeUrl }"
+                :href="site.safeUrl || undefined" target="_blank"
+                :title="site.safeUrl ? site.name : `${site.name}（链接无效，请在设置里改成 http/https 地址）`"
+                @click="onSiteClick($event, site)"
               >
                 <Favicon :site="site" />
                 <span class="site-card__name">{{ site.name }}</span>

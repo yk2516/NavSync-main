@@ -39,6 +39,15 @@ export const useSiteStore = defineStore('site', () => {
   const cateList = computed(() => data.value.map(cate => ({ id: cate.id, name: cate.name })))
   const currentCateData = computed(() => data.value[cateIndex.value] || { groupList: [] })
 
+  /**
+   * 写入前规范化（仅用于「用户手工新增 / 编辑站点」这条路径）。
+   *
+   * ⚠️ 它**不覆盖**数据加载路径 —— `setData()` 是直接赋值，导入 JSON、
+   * 云端下载、访客拉 public-config 都不经过这里。所以它不能当作安全防线：
+   * `javascript:` 这类非法协议在这里会被前缀成 `https://javascript:...`
+   * （坏链接但无害），而导入的数据则会原样进入 store。
+   * 真正拦住脚本执行的是渲染层的 `safeSiteUrl()`（见 `utils/commons.ts`）。
+   */
   function ensureHttps(url: string | undefined) {
     if (url === undefined || url === null)
       return ''
