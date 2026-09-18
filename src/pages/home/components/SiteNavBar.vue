@@ -39,6 +39,15 @@ function handleDragEnd(e: any) {
 
 <template>
   <section class="cate-nav" flex-center>
+    <!--
+      一级分类：胶囊标签。实心强调色底 + 白字，比原先的低对比下划线显眼得多。
+
+      注意：注释必须放在 draggable 外面，不能放进 #item 插槽里！
+      vuedraggable 的 computeNodes 要求插槽每项恰好产出 1 个 vnode，
+      dev 模式下 Vue 会把模板注释编译成真实的注释 vnode，插槽就变成
+      [注释, div] 两个根节点 → 它抛 "Item slot must have only one child"，
+      并把错误栈当成红字 <pre> 顶掉整个列表。生产构建会剥掉注释，所以只有 dev 会炸。
+    -->
     <draggable
       class="cate-nav__list"
       :list="siteStore.data"
@@ -52,7 +61,6 @@ function handleDragEnd(e: any) {
       @end="handleDragEnd"
     >
       <template #item="{ element: cate, index: i }: { element: Category, index: number }">
-        <!-- 一级分类：胶囊标签。实心强调色底 + 白字，比原先的低对比下划线显眼得多 -->
         <div
           class="cate-tab"
           :class="{
