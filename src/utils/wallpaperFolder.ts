@@ -73,19 +73,39 @@ async function idbDelete(): Promise<void> {
   }
 }
 
-/** 弹出文件夹选择器（需要用户手势） */
+/**
+ * 弹出文件夹选择器（需要用户手势）
+ *
+ * 注意这里分成两段 try：**「用户取消」和「句柄存不进 IndexedDB」必须区分开**。
+ * 早先写成一个大 try 把两者都 catch 成「返回 undefined」，后果是：
+ * 隐私模式（IndexedDB 不可用）下用户选完文件夹，调用方 `if (!handle) return`
+ * 直接静默返回 —— 界面毫无反应，也没有任何提示，看起来像按钮坏了。
+ *
+ * 句柄持久化只是为了「刷新后还能自动恢复」，失败不该让整个操作失败：
+ * 本次会话内句柄依然可用，只是刷新后需要重新选一次
+ * （与 `setAdminStored` 里「隐私模式下 localStorage 不可写，本次会话内仍可用」的处理一致）。
+ */
 export async function pickWallpaperDirectory(): Promise<any | undefined> {
   if (!isFolderPickerSupported())
     return undefined
+
+  let handle: any
   try {
-    const handle = await (window as any).showDirectoryPicker({ id: 'navsync-wallpaper', mode: 'read' })
-    await idbPut(handle)
-    return handle
+    handle = await (window as any).showDirectoryPicker({ id: 'navsync-wallpaper', mode: 'read' })
   }
   catch {
-    // 用户取消
+    // 用户取消（AbortError），或浏览器直接拒绝
     return undefined
   }
+
+  try {
+    await idbPut(handle)
+  }
+  catch {
+    // 忽略：只影响下次刷新能否自动恢复，不影响本次使用
+  }
+
+  return handle
 }
 
 export async function loadWallpaperDirectory(): Promise<any | undefined> {
