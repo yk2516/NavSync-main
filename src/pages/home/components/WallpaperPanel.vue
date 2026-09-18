@@ -158,6 +158,18 @@ function selectRecent(image: string) {
 function formatPercent(value: number) {
   return `${Math.round(value)}%`
 }
+
+/** 每页图标数 = 行 × 列，面板里给用户一个直观反馈 */
+const perPageCount = computed(() => {
+  const rows = Math.max(1, Math.round(settings.value.layoutRows || 1))
+  const cols = Math.max(1, Math.round(settings.value.layoutCols || 1))
+  return rows * cols
+})
+
+/** 一键回到「2 行 × 5 列」的推荐布局 */
+function resetLayout() {
+  wallpaperStore.update({ layoutRows: 2, layoutCols: 5, layoutColGap: 30, layoutRowGap: 30 })
+}
 </script>
 
 <template>
@@ -288,7 +300,44 @@ function formatPercent(value: number) {
           <div class="sliders">
             <label><span>图标圆角</span><input v-model.number="settings.iconRadius" type="range" min="0" max="50"><b>{{ settings.iconRadius }}%</b></label>
             <label><span>图标不透明度</span><input v-model.number="settings.iconOpacity" type="range" min="10" max="100"><b>{{ settings.iconOpacity }}%</b></label>
-            <label><span>图标大小</span><input v-model.number="settings.iconSize" type="range" min="40" max="140"><b>{{ settings.iconSize }}%</b></label>
+          </div>
+        </section>
+
+        <!--
+          自定义布局：仿 inftab 的排版面板。
+          行数/列数决定「一页放多少个图标」，间距与图标大小决定疏密，
+          全部通过 --layout-* / --wallpaper-icon-size 这几个 CSS 变量实时生效。
+        -->
+        <section class="wallpaper-section">
+          <div class="wallpaper-title">
+            自定义布局
+            <span class="layout-count">每页 {{ perPageCount }} 个</span>
+          </div>
+          <div class="sliders">
+            <label><span>每页行数</span><input v-model.number="settings.layoutRows" type="range" min="1" max="6" step="1"><b>{{ settings.layoutRows }} 行</b></label>
+            <label><span>每页列数</span><input v-model.number="settings.layoutCols" type="range" min="2" max="8" step="1"><b>{{ settings.layoutCols }} 列</b></label>
+            <label><span>列间距</span><input v-model.number="settings.layoutColGap" type="range" min="0" max="80" step="1"><b>{{ settings.layoutColGap }}%</b></label>
+            <label><span>行间距</span><input v-model.number="settings.layoutRowGap" type="range" min="0" max="80" step="1"><b>{{ settings.layoutRowGap }}%</b></label>
+            <label><span>图标大小</span><input v-model.number="settings.iconSize" type="range" min="40" max="140" step="1"><b>{{ settings.iconSize }}%</b></label>
+          </div>
+          <div
+            class="layout-preview" :style="{
+              gridTemplateColumns: `repeat(${Math.max(2, Math.round(settings.layoutCols || 5))}, 1fr)`,
+              gridTemplateRows: `repeat(${Math.max(1, Math.round(settings.layoutRows || 2))}, 1fr)`,
+              columnGap: `calc(var(--wallpaper-icon-size, 64px) * ${Math.round(settings.layoutColGap) / 100})`,
+              rowGap: `calc(var(--wallpaper-icon-size, 64px) * ${Math.round(settings.layoutRowGap) / 100})`,
+            }"
+          >
+            <span
+              v-for="n in perPageCount" :key="n" class="layout-preview__dot"
+              :style="{ width: 'min(100%, calc(var(--wallpaper-icon-size, 64px) * 0.55))' }"
+            />
+          </div>
+          <div class="layout-actions">
+            <span class="layout-hint">改动实时生效，翻页用小圆点或鼠标滚轮</span>
+            <button type="button" class="outline-button" @click="resetLayout">
+              恢复推荐布局
+            </button>
           </div>
         </section>
 
@@ -421,6 +470,25 @@ function formatPercent(value: number) {
 .clear-button { width: 100%; margin-top: 12px; }
 .wallpaper-footer { justify-content: flex-end; }
 .wallpaper-footer span { margin-right: auto; font-size: 12px; opacity: .62; }
+/* ---- 自定义布局 ---- */
+.layout-count { float: right; font-weight: 400; font-size: 12px; opacity: .62; }
+.layout-preview {
+  display: grid;
+  justify-items: center;
+  align-items: center;
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--main-bg-c) 55%, transparent);
+}
+.layout-preview__dot {
+  aspect-ratio: 1;
+  max-width: 100%;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 55%, transparent);
+}
+.layout-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.layout-hint { flex: 1; font-size: 12px; opacity: .62; }
 .mt-8 { margin-top: 8px; }
 .mt-16 { margin-top: 16px; }
 </style>

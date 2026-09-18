@@ -41,6 +41,11 @@ const DEFAULTS: WallpaperSettings = {
   imageSource: 'picsum',
   customSource: '',
   folderName: '',
+  // 自定义布局默认值：2 行 × 5 列，间距各 30%（相对图标大小）
+  layoutRows: 2,
+  layoutCols: 5,
+  layoutColGap: 30,
+  layoutRowGap: 30,
 }
 
 function storageKey(isAdmin: boolean) {
@@ -63,6 +68,12 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
       // 现在真正接上了，40% 不透明的弹窗读不清，迁移到新的可读默认值。
       popupOpacity: parsed.popupOpacity === 40 ? DEFAULTS.popupOpacity : (parsed.popupOpacity ?? DEFAULTS.popupOpacity),
       recentImages: Array.isArray(parsed.recentImages) ? parsed.recentImages.slice(0, 4) : [],
+      // 布局字段是后加的，旧数据里没有；即便有也可能是脏值，统一在这里夹到合法区间，
+      // 否则 0 列 / NaN 会让网格塌成一条线，而面板滑块也会显示成怪值。
+      layoutRows: clamp(parsed.layoutRows ?? DEFAULTS.layoutRows, 1, 6, DEFAULTS.layoutRows),
+      layoutCols: clamp(parsed.layoutCols ?? DEFAULTS.layoutCols, 2, 8, DEFAULTS.layoutCols),
+      layoutColGap: clamp(parsed.layoutColGap ?? DEFAULTS.layoutColGap, 0, 80, DEFAULTS.layoutColGap),
+      layoutRowGap: clamp(parsed.layoutRowGap ?? DEFAULTS.layoutRowGap, 0, 80, DEFAULTS.layoutRowGap),
     }
   }
   catch {
@@ -274,6 +285,16 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     root.style.setProperty('--wallpaper-icon-radius', `${clamp(current.iconRadius, 0, 50, 26)}%`)
     root.style.setProperty('--wallpaper-icon-opacity', String(clamp(current.iconOpacity, 10, 100, 100) / 100))
     root.style.setProperty('--wallpaper-icon-size', `${(ICON_BASE_SIZE * clamp(current.iconSize, 40, 140, 100) / 100).toFixed(1)}px`)
+    // 自定义布局：行数/列数/间距。间距用「图标大小 × 百分比」换算，
+    // 这样调大图标时间距会一起放大，不会出现「图标很大但挤在一起」。
+    const rows = Math.round(clamp(current.layoutRows, 1, 6, DEFAULTS.layoutRows))
+    const cols = Math.round(clamp(current.layoutCols, 2, 8, DEFAULTS.layoutCols))
+    const colGap = clamp(current.layoutColGap, 0, 80, DEFAULTS.layoutColGap)
+    const rowGap = clamp(current.layoutRowGap, 0, 80, DEFAULTS.layoutRowGap)
+    root.style.setProperty('--layout-rows', String(rows))
+    root.style.setProperty('--layout-cols', String(cols))
+    root.style.setProperty('--layout-col-gap', `calc(var(--wallpaper-icon-size) * ${(colGap / 100).toFixed(2)})`)
+    root.style.setProperty('--layout-row-gap', `calc(var(--wallpaper-icon-size) * ${(rowGap / 100).toFixed(2)})`)
     root.dataset.wallpaperGlass = current.glass
     root.dataset.wallpaperSource = current.source
     root.dataset.wallpaperAutoDim = current.autoDim ? 'true' : 'false'

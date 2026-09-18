@@ -40,7 +40,7 @@ function handleDragEnd(e: any) {
 <template>
   <section class="cate-nav" flex-center>
     <!--
-      一级分类：胶囊标签。实心强调色底 + 白字，比原先的低对比下划线显眼得多。
+      一级分类：下划线标签（仿 inftab）。
 
       注意：注释必须放在 draggable 外面，不能放进 #item 插槽里！
       vuedraggable 的 computeNodes 要求插槽每项恰好产出 1 个 vnode，
@@ -99,7 +99,7 @@ function handleDragEnd(e: any) {
 
 .cate-nav__list {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
@@ -112,46 +112,59 @@ function handleDragEnd(e: any) {
   display: none;
 }
 
+/* 一级分类：下划线标签（仿 inftab）。
+ * 原先的实心胶囊底色很重，和下面的图标网格抢视觉；改成纯文字 + 强调色下划线后
+ * 整块导航清爽很多，选中态靠「下划线 + 加深加粗」表达，在壁纸上依然分得清。 */
 .cate-tab {
+  position: relative;
   flex: 0 0 auto;
-  padding: 7px 16px;
-  border-radius: 999px;
+  padding: 7px 14px 10px;
   font-size: 14px;
   font-weight: 500;
   line-height: 1.2;
   cursor: pointer;
-  /* 未选中：靠半透明底 + 高不透明度文字保证在壁纸上也看得清 */
   color: var(--text-c);
-  background-color: color-mix(in srgb, var(--main-bg-c) 42%, transparent);
-  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease, transform .2s ease;
+  opacity: .68;
+  background-color: transparent;
+  transition: opacity .2s ease, color .2s ease, background-color .2s ease;
+}
+
+.cate-tab::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  left: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background-color: var(--wallpaper-accent, var(--primary-c));
+  transform: scaleX(0);
+  transition: transform .24s cubic-bezier(.22, .61, .36, 1);
 }
 
 .cate-tab:hover {
-  color: var(--text-c);
-  background-color: color-mix(in srgb, var(--main-bg-c) 68%, transparent);
-  transform: translateY(-1px);
+  opacity: .92;
 }
 
 .cate-tab--active {
-  color: #fff;
   font-weight: 600;
-  background-color: var(--wallpaper-accent, var(--primary-c));
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 40%, transparent);
+  opacity: 1;
 }
 
-.cate-tab--active:hover {
-  color: #fff;
-  background-color: var(--wallpaper-accent, var(--primary-c));
+.cate-tab--active::after {
+  transform: scaleX(1);
 }
 
-.site--setting {
-  border: 1px dashed var(--setting-border-c);
-  border-radius: 999px;
+/* 编辑态：给分类标签一点底色，让站长看出它是可拖拽的块 */
+.cate-tab.site--setting {
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background-color: color-mix(in srgb, var(--main-bg-c) 38%, transparent);
 }
 
-.site--select {
-  background-color: var(--setting-group-bg-c);
-  color: var(--primary-c);
+.cate-tab.site--select {
+  color: var(--wallpaper-accent, var(--primary-c));
+  background-color: color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 20%, transparent);
 }
 
 @media screen and (max-width: 640px) {
@@ -160,8 +173,13 @@ function handleDragEnd(e: any) {
   }
 
   .cate-tab {
-    padding: 6px 13px;
+    padding: 6px 11px 9px;
     font-size: 13px;
+  }
+
+  .cate-tab::after {
+    right: 9px;
+    left: 9px;
   }
 }
 </style>

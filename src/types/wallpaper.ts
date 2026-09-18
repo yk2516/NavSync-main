@@ -27,6 +27,14 @@ export interface WallpaperSettings {
   customSource: string
   /** 已授权的壁纸文件夹名（仅用于展示，句柄存在 IndexedDB） */
   folderName: string
+  /** 自定义布局：每页行数 */
+  layoutRows: number
+  /** 自定义布局：每页列数 */
+  layoutCols: number
+  /** 自定义布局：列间距（%，相对图标大小） */
+  layoutColGap: number
+  /** 自定义布局：行间距（%，相对图标大小） */
+  layoutRowGap: number
 }
 
 export interface WallpaperSourceItem {

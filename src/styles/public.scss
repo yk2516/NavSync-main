@@ -277,3 +277,71 @@ button,
 .n-button {
   --n-color: color-mix(in srgb, var(--main-bg-c) calc(var(--wallpaper-input-opacity, .6) * 100%), transparent);
 }
+
+/* ---------- 站点卡片 / 站点网格（浏览态与编辑态共用） ----------
+ * 放在全局而不是组件 scoped 里，是因为两套视图都要同一外观：
+ *   SitePager.vue       浏览态：一个分组一页，滚轮/圆点翻页
+ *   SiteGroupList.vue   编辑态：分组标题置顶、纵向堆叠，便于跨分组拖拽
+ * 网格的列数/行数/间距全部由壁纸面板的「自定义布局」通过 CSS 变量下发。 */
+
+.site-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--layout-cols, 5), minmax(0, 1fr));
+  /* 空行也按图标高度占位：否则站点少的页会矮一截，翻页时整块内容上下跳 */
+  grid-template-rows: repeat(var(--layout-rows, 2), minmax(var(--wallpaper-icon-size, 64px), auto));
+  column-gap: var(--layout-col-gap, 19px);
+  row-gap: var(--layout-row-gap, 19px);
+}
+
+/* 窄屏放不下用户设定的列数（5 列 × 64px 图标在 390px 屏上必然横向溢出），
+ * 这里按断点收敛列数。桌面端仍严格遵循用户设置。 */
+@media screen and (max-width: 767px) {
+  .site-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .site-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* 纵向卡片：图标在上、名称在下。原先的左图右文观感很差，用户明确要求改掉。
+ * 不要给这里加 justify-items: center —— 卡片会缩成 max-content 宽度，
+ * 长名称既无法省略号截断、又会顶破网格；居中交给卡片内部的 align-items 即可。 */
+.site-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color .18s ease, transform .18s ease;
+}
+
+.site-card:not(.site-card--dragging):hover {
+  background-color: var(--site-hover-c);
+  transform: translateY(-2px);
+}
+
+.site-card__name {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.25;
+  opacity: .85;
+}
+
+.site--setting {
+  border: 1px dashed var(--setting-border-c);
+  border-radius: 12px;
+}
+
+.site--setting:hover {
+  background-color: var(--site-hover-c);
+}

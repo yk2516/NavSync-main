@@ -3,11 +3,22 @@ import draggable from 'vuedraggable'
 import Favicon from './Favicon.vue'
 import type { Group, Site } from '@/types'
 
+/**
+ * 编辑态（/setting，且已通过口令）专用视图。
+ *
+ * 浏览态改用 SitePager.vue 的「一个分组一页 + 滚轮翻页」，那种布局下分组标题
+ * 在页面内，无法作为拖拽手柄，跨分组拖动站点也就没法做了。所以这里保留纵向
+ * 堆叠：每个分组标题置顶、网格在下，全部平铺出来，拖拽体验和改造前一致。
+ *
+ * 注意：下面两个 #item 插槽里都不能出现「作为插槽直接子节点」的模板注释 ——
+ * dev 模式下 Vue 会把注释编译成真实的注释 vnode，插槽就变成两个根节点，
+ * vuedraggable 会抛 "Item slot must have only one child" 并把错误栈当红字画出来。
+ */
+
 const modalStore = useModalStore()
 const siteStore = useSiteStore()
 const route = useRoute()
 
-// 安全获取当前分类的 groupList（空值保护，避免导入空数据后 data[0] 为 undefined 导致白屏）
 const currentGroupList = computed(() => siteStore.currentCateData.groupList)
 
 function handleSiteClick(url: string, groupIndex: number, siteIndex: number, e: Event) {
@@ -39,86 +50,77 @@ const renderStore = useRenderStore()
       :component-data="{
         tag: 'div',
         type: 'transition-group',
+        class: 'group-list',
       }"
       v-bind="draggableOptions"
       @start="handleStart"
       @end="handleEnd"
     >
       <template #item="{ element: group, index: i }: { element: Group, index: number }">
-        <div
-          :class="{
-            'group__header--line': currentGroupList.length !== i + 1,
-          }"
-          flex style="align-items: center;"
-        >
-          <!-- Group header -->
-          <div class="group__header--all" grid justify-start>
+        <div class="group-block">
+          <div class="group-block__head">
             <span
               class="group__handle" :class="{
                 'cursor-pointer': settingStore.isSetting,
                 'site--setting': settingStore.isSetting,
-              }" shrink-0 whitespace-nowrap @click="handleGroupClick(i)"
+              }"
+              @click="handleGroupClick(i)"
             >
               {{ group.name }}
             </span>
           </div>
-          <!-- Group content -->
-          <div flex class="group__content--all">
-            <draggable
-              :list="currentGroupList[i].siteList"
-              item-key="id"
-              group="site"
-              handle=".site__handle"
-              drag-class="dragging"
-              :component-data="{
-                tag: 'div',
-                type: 'transition-group',
-                class: 'grid gap-8 grid-cols-3 md:gap-12 lg:gap-12 xl:gap-12 md:grid-cols-6 lg:grid-cols-6 xl:grid-cols-6',
-              }"
-              v-bind="draggableOptions"
-              flex
-              style="flex: 0 0 100%;"
-              @start="handleStart"
-              @end="handleEnd"
-            >
-              <template #item="{ element: site, index }: { element: Site, index: number }">
-                <div>
-                  <!-- Site item：图标在上、名称在下的纵向卡片 -->
-                  <a
-                    class="site__handle site-card"
-                    :class="{
-                      'site--setting': settingStore.isSetting,
-                      'site-card--dragging': settingStore.isDragging,
-                    }"
-                    :href="site.url" target="_blank"
-                    :title="site.name"
-                    @click="e => handleSiteClick(site.url, i, index, e)"
-                  >
-                    <Favicon :site="site" />
-                    <span class="site-card__name">{{ site.name }}</span>
-                  </a>
-                </div>
-              </template>
-              <template #footer>
-                <div v-if="!settingStore.isDragging && settingStore.isSetting && currentGroupList[i].siteList.length < 6" min-h-32>
-                  <n-button
-                    class="h-full" type="primary" secondary :focusable="false"
-                    title="添加站点" aria-label="添加站点"
-                    @click="modalStore.showModal('add', 'site', i)"
-                  >
-                    <template #icon>
-                      <div i-carbon:add />
-                    </template>
-                  </n-button>
-                </div>
-              </template>
-            </draggable>
-          </div>
+          <draggable
+            :list="currentGroupList[i].siteList"
+            item-key="id"
+            group="site"
+            handle=".site__handle"
+            drag-class="dragging"
+            :component-data="{
+              tag: 'div',
+              type: 'transition-group',
+              class: 'site-grid',
+            }"
+            v-bind="draggableOptions"
+            @start="handleStart"
+            @end="handleEnd"
+          >
+            <template #item="{ element: site, index }: { element: Site, index: number }">
+              <div>
+                <a
+                  class="site-card site__handle"
+                  :class="{
+                    'site--setting': settingStore.isSetting,
+                    'site-card--dragging': settingStore.isDragging,
+                  }"
+                  :href="site.url" target="_blank"
+                  :title="site.name"
+                  @click="e => handleSiteClick(site.url, i, index, e)"
+                >
+                  <Favicon :site="site" />
+                  <span class="site-card__name">{{ site.name }}</span>
+                </a>
+              </div>
+            </template>
+            <template #footer>
+              <!-- 不再限制「每分组 6 个」：容量现在由布局决定，超出部分浏览态会自动续页 -->
+              <div v-if="!settingStore.isDragging" class="group-block__add">
+                <n-button
+                  class="h-full" type="primary" secondary :focusable="false"
+                  title="添加站点" aria-label="添加站点"
+                  @click="modalStore.showModal('add', 'site', i)"
+                >
+                  <template #icon>
+                    <div i-carbon:add />
+                  </template>
+                </n-button>
+              </div>
+            </template>
+          </draggable>
         </div>
       </template>
     </draggable>
-    <!-- Add group button -->
-    <div v-if="addGroupVisible" my-20 md="my-32" lg="my-32">
+
+    <div v-if="addGroupVisible" my-20 md="my-32 lg:my-32">
       <n-button
         type="primary" secondary w-full :focusable="false"
         title="添加分组" aria-label="添加分组"
@@ -133,41 +135,23 @@ const renderStore = useRenderStore()
 </template>
 
 <style lang="scss" scoped>
-/* 纵向站点卡片：图标在上、名称在下（原先的左图右文观感很差） */
-.site-card {
+/* 分组块：标题置顶 + 网格在下。原先标题占左侧 12% 竖排，
+ * 在壁纸上既挤又难读，用户明确要求取消这条侧边栏。 */
+.group-block + .group-block {
+  margin-top: 40px;
+}
+
+.group-block__head {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 10px 4px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: background-color .18s ease, transform .18s ease;
+  margin-bottom: 12px;
 }
 
-.site-card:not(.site-card--dragging):hover {
-  background-color: var(--site-hover-c);
-  transform: translateY(-2px);
+.group-block__add {
+  min-height: 32px;
 }
 
-.site-card__name {
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  text-align: center;
-  font-size: 13px;
-  line-height: 1.25;
-  opacity: .85;
-}
-
-.site--setting {
-  border: 1px dashed var(--setting-border-c);
-  border-radius: 12px;
-}
-
-/* 二级分组标题：去掉原先的低对比色块，改成「强调色竖条 + 高对比文字 + 半透明胶囊底」，
- * 在壁纸上也看得清，比之前的青色小字显眼。 */
+/* 二级分组标题：强调色竖条 + 高对比文字 + 半透明胶囊底，在壁纸上也看得清 */
 .group__handle {
   display: inline-flex;
   align-items: center;
@@ -202,39 +186,9 @@ const renderStore = useRenderStore()
   border-radius: 8px;
 }
 
-.group__header--all {
-  max-width: 12%;
-  overflow: hidden;
-  align-items: center;
-  flex: 0 0 12%;
-}
-
-.site--setting:hover {
-  background-color: var(--site-hover-c);
-}
-
-.group__content--all {
-  flex: 0 0 88%;
-  max-width: 88%;
-}
-
-.group__header--line {
-  margin-bottom: 10rem;
-}
-
 @media screen and (max-width: 767px) {
-  .group__header--all {
-    max-width: 15%;
-    flex: 0 0 15%;
-  }
-
-  .group__content--all {
-    flex: 0 0 85%;
-    max-width: 85%;
-  }
-
-  .group__header--line {
-    margin-bottom: 4rem;
+  .group-block + .group-block {
+    margin-top: 24px;
   }
 }
 </style>
