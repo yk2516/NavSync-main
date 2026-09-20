@@ -7,7 +7,6 @@ const siteStore = useSiteStore()
 const wallpaperStore = useWallpaperStore()
 const renderStore = useRenderStore()
 const modalStore = useModalStore()
-const adminStore = useAdminStore()
 
 const viewportEl = ref<HTMLElement>()
 
@@ -30,13 +29,22 @@ interface Page {
   key: string
   /** 所属分组标识：同一分组被拆成多页时用它归并成一个二级导航项 */
   groupKey: string
+  /** 该分组在当前分类里的下标，点「＋」新增站点时用来定位 */
+  groupIndex: number
   name: string
   sites: PageSite[]
+  /** 该分组的**最后一页**才挂「＋」：加号始终跟在站点后面，一个分组只出现一次 */
+  showAdd: boolean
 }
 
 /**
  * 一个分组一页。
  * 站点数超过一页容量时自动续页，空分组在浏览态不占页 —— 否则访客会翻到一整页空白。
+ *
+ * 「＋」格子**算进容量**（`sites.length + 1`）：这样「＋」永远有自己的位置，
+ * 用户点它加完站点后，新站点就落在当前这一页，不会被挤到下一页去。
+ * 代价是站点数正好是「每页容量」整数倍的分组会多出一页、页上只有加号 ——
+ * 比起「加完站点看不见」要可接受得多。
  */
 const pages = computed<Page[]>(() => {
   const groups = siteStore.currentCateData.groupList || []
@@ -47,12 +55,15 @@ const pages = computed<Page[]>(() => {
     if (!sites.length)
       return
     const groupKey = String(group.id ?? gi)
-    const chunks = Math.ceil(sites.length / size)
+    // +1 是末尾那个「＋」占的格子
+    const chunks = Math.ceil((sites.length + 1) / size)
     for (let c = 0; c < chunks; c++) {
       result.push({
         key: `${groupKey}-${c}`,
         groupKey,
+        groupIndex: gi,
         name: group.name,
+        showAdd: c === chunks - 1,
         // 在这里统一过一遍协议白名单，模板里就不用重复调用：
         // 站点数据可能来自导入的 JSON，未过滤的 `javascript:` 会在点击时于本站执行
         sites: sites.slice(c * size, (c + 1) * size)
@@ -111,18 +122,22 @@ function onSiteClick(e: MouseEvent, site: PageSite) {
 }
 
 /**
- * 右键站点卡片 → 直接打开该站点的编辑弹窗（只对站长开放）。
+ * 右键站点卡片 → 直接打开该站点的编辑弹窗。
  *
- * 站长平时就停在浏览态（`/`），要改一个站点得先切到 `/setting` 再找到它；
- * 这里给一条快捷路径，和引擎条「右键自定义引擎即编辑」保持一致。
+ * **站长与访客都能用**。访客的改动只落在自己浏览器的「覆盖层」里（见
+ * `utils/viewerOverlay.ts`），不上传也不下载 —— 站长那侧完全感知不到。
  *
- * 访客不拦截右键 —— 保留浏览器原生菜单（新标签页打开、复制链接等）。
+ * 代价是访客失去了浏览器原生右键菜单（新标签页打开 / 复制链接）；
+ * Ctrl+点击、鼠标中键仍能新标签页打开，所以这条取舍可以接受。
  */
 function onSiteContextMenu(e: MouseEvent, site: PageSite) {
-  if (!adminStore.isAdmin)
-    return
   e.preventDefault()
   modalStore.showModal('update', 'site', site.groupIndex, site.siteIndex)
+}
+
+/** 网格末尾的「＋」：给该分组新增一个网站（访客的新增同样只进本地覆盖层） */
+function onAddSite(groupIndex: number) {
+  modalStore.showModal('add', 'site', groupIndex)
 }
 
 function goTo(index: number) {
@@ -285,6 +300,14 @@ onBeforeUnmount(() => {
                 <span class="site-card__box"><Favicon :site="site" /></span>
                 <span class="site-card__name">{{ site.name }}</span>
               </a>
+              <!-- 该分组最后一页末尾的「＋」：访客与站长都能添加网站 -->
+              <button
+                v-if="page.showAdd" type="button" class="site-card site-card--add"
+                :title="`添加网站到「${page.name}」`" :aria-label="`添加网站到「${page.name}」`"
+                @click="onAddSite(page.groupIndex)"
+              >
+                <span class="site-card__box"><span i-carbon:add text-26 op-55 /></span>
+              </button>
             </div>
           </div>
         </div>

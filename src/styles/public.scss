@@ -363,6 +363,38 @@ button,
   opacity: .45;
 }
 
+/* 浏览态的「＋ 添加网站」格子（访客与站长都有，访客的站点只进本地覆盖层）。
+ *
+ * 它复用 `.site-card` + `.site-card__box`，所以加号外框与站点外框尺寸、圆角、
+ * 悬停底色完全一致，在网格里自然对齐。
+ * `<button>` 要把浏览器默认样式清干净（背景、边框、内边距、字体），否则会顶掉网格布局。
+ * ⚠️ 不要把 `background-color` 写到里面的图标元素上 —— 见下方 presetIcons 的说明。 */
+.site-card--add {
+  font: inherit;
+  color: inherit;
+  background-color: transparent;
+  border: 0;
+}
+
+.site-card--add .site-card__box {
+  border: 1px dashed var(--setting-border-c);
+}
+
+.site-card--add:hover .site-card__box {
+  background-color: var(--site-hover-c);
+  transform: translateY(-2px);
+}
+
+/* 纯图标按钮必须能被键盘找到并看见焦点（a11y），焦点环画在外框上 */
+.site-card--add:focus-visible {
+  outline: none;
+}
+
+.site-card--add:focus-visible .site-card__box {
+  outline: 2px solid var(--wallpaper-accent, var(--primary-c));
+  outline-offset: 2px;
+}
+
 .site-card__name {
   max-width: 100%;
   overflow: hidden;
