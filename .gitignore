@@ -37,3 +37,6 @@ coverage
 *.jpg
 # README 演示截图需要随仓库发布，从 *.jpg 规则中豁免
 !1.jpg
+
+# dev-expert 工作记忆（Step 6 沉淀，不进版本库）
+.ai-memory/
