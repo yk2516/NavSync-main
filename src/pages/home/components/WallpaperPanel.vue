@@ -13,7 +13,7 @@ const settings = computed(() => wallpaperStore.settings)
 const folderSupported = isFolderPickerSupported()
 
 /**
- * 皮肤按 group 分组展示（深色 / 浅色 / 品牌）。
+ * 皮肤按 group 分组展示（基础 / 清新 / 明亮 / 深色 / 品牌）。
  * 分组顺序 = SKINS 里的键序，所以新增皮肤时把条目放到对应分组的末尾即可。
  */
 const skinGroups = computed(() => {
@@ -24,6 +24,14 @@ const skinGroups = computed(() => {
 })
 
 const skinCount = computed(() => Object.keys(wallpaperSkins).length)
+
+/** 渐变预设同样按 group 分组（清新柔和 / 强对比），顺序 = WALLPAPER_GRADIENTS 的数组序 */
+const gradientGroups = computed(() => {
+  const groups: Record<string, { label: string; value: string }[]> = {}
+  for (const item of WALLPAPER_GRADIENTS)
+    (groups[item.group] ||= []).push({ label: item.label, value: item.value })
+  return groups
+})
 
 /**
  * n-drawer（naive-ui 2.34）自身没有 Esc 关闭逻辑 —— 源码里搜不到 Escape，
@@ -456,21 +464,28 @@ function resetLayout() {
               应用
             </button>
           </div>
-          <!-- 对比度明显的现成配色，点一下直接应用；也可以点完再改输入框里的色值 -->
-          <div v-if="activeSource === 'gradient'" class="gradient-presets">
-            <button
-              v-for="item in WALLPAPER_GRADIENTS"
-              :key="item.label"
-              type="button"
-              class="gradient-preset"
-              :class="{ active: settings.source === 'gradient' && settings.gradient === item.value }"
-              :title="item.value"
-              :aria-label="`使用「${item.label}」渐变`"
-              @click="useGradientPreset(item.value)"
-            >
-              <span class="gradient-preset__preview" :style="{ background: item.value }" />
-              <span>{{ item.label }}</span>
-            </button>
+          <!-- 现成配色，点一下直接应用；也可以点完再改输入框里的色值 -->
+          <div v-if="activeSource === 'gradient'" class="gradient-groups">
+            <div v-for="(list, group) in gradientGroups" :key="group" class="preset-group">
+              <div class="preset-group__title">
+                {{ group }}
+              </div>
+              <div class="gradient-presets">
+                <button
+                  v-for="item in list"
+                  :key="item.label"
+                  type="button"
+                  class="gradient-preset"
+                  :class="{ active: settings.source === 'gradient' && settings.gradient === item.value }"
+                  :title="item.value"
+                  :aria-label="`使用「${item.label}」渐变`"
+                  @click="useGradientPreset(item.value)"
+                >
+                  <span class="gradient-preset__preview" :style="{ background: item.value }" />
+                  <span>{{ item.label }}</span>
+                </button>
+              </div>
+            </div>
           </div>
           <button type="button" class="clear-button" @click="wallpaperStore.removeWallpaper">
             清除壁纸
@@ -513,10 +528,12 @@ function resetLayout() {
 .skin-card, .gradient-preset { display: grid; gap: 4px; padding: 4px; border-radius: 8px; font-size: 12px; line-height: 1.25; }
 .skin-card:hover, .glass-card:hover, .source-card:hover, .gradient-preset:hover { transform: translateY(-1px); }
 .skin-card.active, .glass-card.active, .advanced-tabs button.active, .source-card.active, .gradient-preset.active { border-color: var(--wallpaper-accent, var(--primary-c)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 22%, transparent); }
-/* 皮肤有 30+ 套，预览条压到 30px 才不至于把面板拉太长 */
+/* 皮肤有 40+ 套，预览条压到 30px 才不至于把面板拉太长 */
 .skin-preview { height: 30px; border-radius: 5px; }
-/* 渐变预设：3 列，点一下直接应用 */
-.gradient-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+/* 渐变预设：3 列，点一下直接应用。分「清新柔和 / 强对比」两组展示 */
+.preset-group + .preset-group { margin-top: 12px; }
+.preset-group__title { margin: 10px 0 6px; font-size: 12px; opacity: .62; }
+.gradient-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .gradient-preset__preview { height: 26px; border-radius: 5px; }
 .accent-controls, .wallpaper-actions, .advanced-input, .wallpaper-footer, .recent-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .accent-controls input[type='color'] { width: 36px; height: 28px; padding: 0; border: 0; background: transparent; cursor: pointer; }

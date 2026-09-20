@@ -18,7 +18,9 @@ const PERSIST_DEBOUNCE_MS = 300
 /**
  * 预设皮肤。
  *
- * `group` 只用于面板分组展示（深色 / 浅色 / 品牌），不影响渲染。
+ * `group` 只用于面板分组展示（基础 / 清新 / 明亮 / 深色 / 品牌），不影响渲染；
+ * **分组顺序 = 这里的键序**，所以新增皮肤要放到对应分组的末尾。
+ * 「清新」排在深色前面是有意的：导航页是图标密集版面，浅底柔和色才是默认该看到的选项。
  * `background` 直接写进 html 的 `--wallpaper-skin`（见 styles/public.scss 的壁纸层说明），
  * 因此必须是**纯 CSS 值**：只有渐变和纯色，没有图片、没有网络请求 —— 这是皮肤能做到
  * 「点一下下一帧就变」的原因（对比图片壁纸的「下载 + 解码」）。
@@ -28,10 +30,45 @@ const PERSIST_DEBOUNCE_MS = 300
  * 首页文字应可读。`default` 是唯一不设背景的皮肤（交给主题底色）。
  */
 const SKINS: Record<string, { label: string; group: string; background: string }> = {
-  // ---------------- 深色 ----------------
+  // ---------------- 基础 ----------------
   // default 不设背景：交给 html 的主题底色（--bg-c / 暗色 --dark-bg-c），
   // 否则暗色模式下会被这里的亮色写死，且不透明背景会盖住壁纸层。
-  default: { label: '默认', group: '深色', background: 'none' },
+  default: { label: '默认', group: '基础', background: 'none' },
+
+  // ---------------- 清新 ----------------
+  // 导航页是「图标 + 文字」的密集版面，用户会长时间停在这一屏 —— 背景太深（黑墙）
+  // 或太白（刺眼）都难受。这一组刻意取**低饱和 + 中高明度**的柔和色：
+  // 白天不晃眼、夜里不压抑，白天黑夜同一套都成立。
+  // 明度都压在自适应翻转线（0.42）之上，因此始终是「浅底深字」，
+  // 站点图标与站名永远是最清楚的那一层。
+  mistWhite: { label: '月白', group: '清新', background: 'linear-gradient(160deg, #eef3f9 0%, #dfe8f3 100%)' },
+  dawnMist: { label: '晨雾', group: '清新', background: 'linear-gradient(160deg, #e6eef7 0%, #d8e4f2 55%, #ece6f4 100%)' },
+  seaSalt: { label: '海盐', group: '清新', background: 'linear-gradient(150deg, #cfeaee 0%, #d6e2f7 100%)' },
+  mintMilk: { label: '薄荷奶', group: '清新', background: 'linear-gradient(150deg, #d5f0e7 0%, #cfe6f7 100%)' },
+  bamboo: { label: '竹青', group: '清新', background: 'linear-gradient(150deg, #d9efdf 0%, #c8e5ea 100%)' },
+  skyMist: { label: '天青雾', group: '清新', background: 'linear-gradient(150deg, #d3e7fa 0%, #e4f0fb 100%)' },
+  sakura: { label: '樱雪', group: '清新', background: 'linear-gradient(150deg, #fbe2ea 0%, #efe1f8 100%)' },
+  lotus: { label: '藕荷', group: '清新', background: 'linear-gradient(150deg, #eae1f6 0%, #e0ddf8 100%)' },
+  taro: { label: '香芋', group: '清新', background: 'linear-gradient(150deg, #e2d6f8 0%, #efe3f7 100%)' },
+  oatMilk: { label: '燕麦', group: '清新', background: 'linear-gradient(150deg, #f7efe1 0%, #eee3d2 100%)' },
+  celadon: { label: '青瓷', group: '清新', background: 'linear-gradient(150deg, #d3eae4 0%, #c6e0dd 100%)' },
+  dusk: { label: '薄暮', group: '清新', background: 'linear-gradient(150deg, #f5e5d6 0%, #e0d6f0 100%)' },
+  smokeBlue: { label: '烟灰蓝', group: '清新', background: 'linear-gradient(150deg, #c7d6e8 0%, #dde6f1 100%)' },
+  daiQing: { label: '黛青', group: '清新', background: 'linear-gradient(150deg, #bcd5d2 0%, #d5e4e1 100%)' },
+  matcha: { label: '抹茶', group: '清新', background: 'linear-gradient(150deg, #cfe0c4 0%, #e7eeda 100%)' },
+  mistRose: { label: '藕粉', group: '清新', background: 'linear-gradient(150deg, #eed3de 0%, #f3e5ec 100%)' },
+
+  // ---------------- 明亮 ----------------
+  clear: { label: '干净明亮', group: '明亮', background: 'linear-gradient(135deg, #ffffff 0%, #e8eef7 100%)' },
+  ios: { label: 'iOS 屏半', group: '明亮', background: 'linear-gradient(90deg, #f8fafc 0 50%, #17191f 50%)' },
+  material: { label: 'Material 粉', group: '明亮', background: 'linear-gradient(135deg, #f8e9ee 0%, #ffffff 100%)' },
+  paper: { label: '纸白', group: '明亮', background: 'linear-gradient(135deg, #ffffff 0%, #f4f6f8 100%)' },
+  ivory: { label: '象牙白', group: '明亮', background: 'linear-gradient(135deg, #fffdf7 0%, #f5efe2 100%)' },
+  mint: { label: '薄荷', group: '明亮', background: 'linear-gradient(135deg, #f2fdf6 0%, #d8f3e3 100%)' },
+  sky: { label: '天青', group: '明亮', background: 'linear-gradient(135deg, #f4fbff 0%, #dcecfb 100%)' },
+  sand: { label: '暖沙', group: '明亮', background: 'linear-gradient(135deg, #fffaf0 0%, #f6e7cd 100%)' },
+
+  // ---------------- 深色 ----------------
   midnight: { label: '午夜黑', group: '深色', background: 'linear-gradient(135deg, #090b12 0%, #202333 100%)' },
   deepBlue: { label: '沉静蓝', group: '深色', background: 'linear-gradient(135deg, #111827 0%, #1e293b 100%)' },
   graphite: { label: '石墨灰', group: '深色', background: 'linear-gradient(135deg, #1b1b1d 0%, #34343a 100%)' },
@@ -43,16 +80,6 @@ const SKINS: Record<string, { label: string; group: string; background: string }
   wine: { label: '酒红', group: '深色', background: 'linear-gradient(135deg, #2a0d16 0%, #4d1526 100%)' },
   warmBrown: { label: '余烬棕', group: '深色', background: 'linear-gradient(135deg, #2c2019 0%, #4b2f1f 100%)' },
   coffee: { label: '咖啡', group: '深色', background: 'linear-gradient(135deg, #1f1712 0%, #3d2b1f 100%)' },
-
-  // ---------------- 浅色 ----------------
-  clear: { label: '干净明亮', group: '浅色', background: 'linear-gradient(135deg, #ffffff 0%, #e8eef7 100%)' },
-  ios: { label: 'iOS 屏半', group: '浅色', background: 'linear-gradient(90deg, #f8fafc 0 50%, #17191f 50%)' },
-  material: { label: 'Material 粉', group: '浅色', background: 'linear-gradient(135deg, #f8e9ee 0%, #ffffff 100%)' },
-  paper: { label: '纸白', group: '浅色', background: 'linear-gradient(135deg, #ffffff 0%, #f4f6f8 100%)' },
-  ivory: { label: '象牙白', group: '浅色', background: 'linear-gradient(135deg, #fffdf7 0%, #f5efe2 100%)' },
-  mint: { label: '薄荷', group: '浅色', background: 'linear-gradient(135deg, #f2fdf6 0%, #d8f3e3 100%)' },
-  sky: { label: '天青', group: '浅色', background: 'linear-gradient(135deg, #f4fbff 0%, #dcecfb 100%)' },
-  sand: { label: '暖沙', group: '浅色', background: 'linear-gradient(135deg, #fffaf0 0%, #f6e7cd 100%)' },
 
   // ---------------- 品牌 ----------------
   // 取自各家产品界面的公开主色调，命名只作配色来源的描述。
@@ -71,26 +98,46 @@ const SKINS: Record<string, { label: string; group: string; background: string }
 }
 
 /**
- * 渐变壁纸预设：**对比度明显**的配色，给「高级壁纸 → 渐变」当一键选项用。
+ * 渐变壁纸预设：一键可用的现成配色，给「高级壁纸 → 渐变」当选项用。
  *
  * 与皮肤的区别是层次与定位：皮肤写在 html 底色上（最底层，低调基调），
  * 渐变写在 body::after（图片之上，直接当壁纸用）。两边都用纯 CSS，零请求。
+ *
+ * 分两组：「清新柔和」低饱和、明度在翻转线之上，导航页长时间停留不累；
+ * 「强对比」用于想要强烈视觉冲击的场合。`group` 只影响面板分组，不参与渲染。
  */
-export const WALLPAPER_GRADIENTS: { label: string; value: string }[] = [
-  { label: '落日熔金', value: 'linear-gradient(135deg, #ff6b35 0%, #f7c59f 40%, #6a0572 100%)' },
-  { label: '赛博霓虹', value: 'linear-gradient(135deg, #fc00ff 0%, #00dbde 100%)' },
-  { label: '冰火', value: 'linear-gradient(135deg, #ff0844 0%, #00c6ff 100%)' },
-  { label: '霓虹紫青', value: 'linear-gradient(135deg, #8a2be2 0%, #00e5ff 100%)' },
-  { label: '烈焰', value: 'linear-gradient(135deg, #f12711 0%, #f5af19 100%)' },
-  { label: '极光', value: 'linear-gradient(135deg, #00d2ff 0%, #3a47d5 100%)' },
-  { label: '糖果', value: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
-  { label: '青柠', value: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
-  { label: '黄昏', value: 'linear-gradient(135deg, #2c3e50 0%, #fd746c 100%)' },
-  { label: '深海', value: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)' },
-  { label: '葡萄', value: 'linear-gradient(135deg, #654ea3 0%, #eaafc8 100%)' },
-  { label: '矩阵绿', value: 'linear-gradient(135deg, #000000 0%, #0f9b0f 100%)' },
-  { label: '皇家蓝', value: 'linear-gradient(135deg, #141e30 0%, #243b55 100%)' },
-  { label: '蜜桃', value: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)' },
+export const WALLPAPER_GRADIENTS: { label: string; group: string; value: string }[] = [
+  // ---------------- 清新柔和 ----------------
+  { label: '晨雾', group: '清新柔和', value: 'linear-gradient(160deg, #dbe7f3 0%, #cddcee 50%, #ecdff2 100%)' },
+  { label: '月白', group: '清新柔和', value: 'linear-gradient(160deg, #e8eef7 0%, #d5dfec 100%)' },
+  { label: '海盐', group: '清新柔和', value: 'linear-gradient(150deg, #8fe3e0 0%, #cfe0f7 100%)' },
+  { label: '薄荷奶', group: '清新柔和', value: 'linear-gradient(150deg, #bdeee0 0%, #c8e6fb 100%)' },
+  { label: '抹茶奶', group: '清新柔和', value: 'linear-gradient(150deg, #cfe9b8 0%, #f2ecc4 100%)' },
+  { label: '天青', group: '清新柔和', value: 'linear-gradient(150deg, #b8ddfb 0%, #d7ecff 100%)' },
+  { label: '竹影', group: '清新柔和', value: 'linear-gradient(150deg, #bfe6c8 0%, #b6dcdd 100%)' },
+  { label: '青瓷', group: '清新柔和', value: 'linear-gradient(150deg, #b6e3d8 0%, #a5d2cf 50%, #dcebe6 100%)' },
+  { label: '樱雪', group: '清新柔和', value: 'linear-gradient(150deg, #ffd9e4 0%, #f2c9dd 55%, #d9d2f7 100%)' },
+  { label: '藕荷', group: '清新柔和', value: 'linear-gradient(150deg, #e6cff0 0%, #cdc6f2 50%, #dde6fa 100%)' },
+  { label: '香芋', group: '清新柔和', value: 'linear-gradient(150deg, #cfb9f7 0%, #f0c8ee 100%)' },
+  { label: '米杏', group: '清新柔和', value: 'linear-gradient(150deg, #fbe3c4 0%, #eed3b3 100%)' },
+  { label: '沙丘', group: '清新柔和', value: 'linear-gradient(150deg, #f4e3c8 0%, #e6d7c3 50%, #d3dae4 100%)' },
+  { label: '薄暮', group: '清新柔和', value: 'linear-gradient(150deg, #f7d7b8 0%, #dcc2e0 50%, #b9c8ea 100%)' },
+
+  // ---------------- 强对比 ----------------
+  { label: '落日熔金', group: '强对比', value: 'linear-gradient(135deg, #ff6b35 0%, #f7c59f 40%, #6a0572 100%)' },
+  { label: '赛博霓虹', group: '强对比', value: 'linear-gradient(135deg, #fc00ff 0%, #00dbde 100%)' },
+  { label: '冰火', group: '强对比', value: 'linear-gradient(135deg, #ff0844 0%, #00c6ff 100%)' },
+  { label: '霓虹紫青', group: '强对比', value: 'linear-gradient(135deg, #8a2be2 0%, #00e5ff 100%)' },
+  { label: '烈焰', group: '强对比', value: 'linear-gradient(135deg, #f12711 0%, #f5af19 100%)' },
+  { label: '极光', group: '强对比', value: 'linear-gradient(135deg, #00d2ff 0%, #3a47d5 100%)' },
+  { label: '糖果', group: '强对比', value: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
+  { label: '青柠', group: '强对比', value: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
+  { label: '黄昏', group: '强对比', value: 'linear-gradient(135deg, #2c3e50 0%, #fd746c 100%)' },
+  { label: '深海', group: '强对比', value: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)' },
+  { label: '葡萄', group: '强对比', value: 'linear-gradient(135deg, #654ea3 0%, #eaafc8 100%)' },
+  { label: '矩阵绿', group: '强对比', value: 'linear-gradient(135deg, #000000 0%, #0f9b0f 100%)' },
+  { label: '皇家蓝', group: '强对比', value: 'linear-gradient(135deg, #141e30 0%, #243b55 100%)' },
+  { label: '蜜桃', group: '强对比', value: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)' },
 ]
 
 const DEFAULTS: WallpaperSettings = {
