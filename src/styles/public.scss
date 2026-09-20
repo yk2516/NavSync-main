@@ -365,8 +365,7 @@ button,
 
 /* 浏览态的「＋ 添加网站」格子（访客与站长都有，访客的站点只进本地覆盖层）。
  *
- * 它复用 `.site-card` + `.site-card__box`，所以加号外框与站点外框尺寸、圆角、
- * 悬停底色完全一致，在网格里自然对齐。
+ * 它复用 `.site-card` + `.site-card__box`，所以加号外框与站点外框的圆角、悬停底色一致。
  * `<button>` 要把浏览器默认样式清干净（背景、边框、内边距、字体），否则会顶掉网格布局。
  * ⚠️ 不要把 `background-color` 写到里面的图标元素上 —— 见下方 presetIcons 的说明。 */
 .site-card--add {
@@ -376,7 +375,19 @@ button,
   border: 0;
 }
 
+/* ⚠️ 尺寸必须**显式**给，不能靠内容撑。
+ *
+ * `.site-card__box` 本来没有宽高，尺寸是内容撑出来的：站点卡片的内容是
+ * 72px 的 favicon + 两侧内边距 → 91.8px，正好等于 `--site-card-box-size`。
+ * 而「＋」的内容只是一个 26px 的图标 → 外框只有 53.3px：
+ *   ① 比同排图标外框小一圈；
+ *   ② 卡片没有名称行，flex 从顶边排起 → 外框贴格子顶端，
+ *      实测 dy（外框中心相对格子中心）站点卡片是 -11.5px、「＋」是 -30.8px，
+ *      看起来「又小又靠上」，跟同排同列都对不齐。
+ * 显式写 `--site-card-box-size` 后两者完全重合（与编辑态的 `.group-block__add` 同源）。 */
 .site-card--add .site-card__box {
+  width: var(--site-card-box-size);
+  height: var(--site-card-box-size);
   border: 1px dashed var(--setting-border-c);
 }
 
