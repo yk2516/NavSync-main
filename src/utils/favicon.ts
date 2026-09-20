@@ -1,4 +1,5 @@
 import { safeFaviconUrl } from './commons'
+import type { FaviconSource } from '@/types'
 
 /**
  * 站点图标 URL 构造。
@@ -13,25 +14,59 @@ import { safeFaviconUrl } from './commons'
  * 已知代价：0x3 主流站只返 **32×32** PNG（`size` 参数无效）。在 2 倍屏上图标会被放大 ~3 倍，
  * 比改造前的 128px 源要糊一些。**速度优先于像素清晰度是这次改造的取舍**。
  */
-function getDomainName(url: string) {
-  let domain = url.replace(/(^\w+:|^)\/\//, '')
-  domain = domain.replace(/^www\./, '')
-
-  const matches = domain.match(/([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/)
-
-  if (matches && matches.length > 1)
-    return matches[1]
-
-  return null
+function getHostname(url: string) {
+  try {
+    const candidate = /^[a-z][a-z\d+.-]*:\/\//i.test(url) ? url : `https://${url}`
+    const parsed = new URL(candidate)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
+      return null
+    return parsed.hostname
+  }
+  catch {
+    return null
+  }
 }
 
+/** 旧版默认图标源：保留给存量数据识别与兼容，不再作为新 UI 的默认源。 */
 export function getFaviconUrl(url: string) {
-  const domain = getDomainName(url)
-  if (domain == null)
+  const hostname = getHostname(url)
+  if (!hostname)
     return ''
 
   // 直接调 0x3；0x3 无 CORS，可作为 `<img src>` 跨域加载。
-  return `https://0x3.com/icon?host=${domain}`
+  return `https://0x3.com/icon?host=${hostname.replace(/^www\./, '')}`
+}
+
+/** 网站自身约定的默认 favicon 位置。 */
+export function getSiteFaviconUrl(url: string) {
+  const hostname = getHostname(url)
+  return hostname ? `https://${hostname}/favicon.ico` : ''
+}
+
+/** Google Favicon Service：适合网站未把 favicon 放在根目录的情况。 */
+export function getGoogleFaviconUrl(url: string) {
+  const hostname = getHostname(url)
+  return hostname ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=128` : ''
+}
+
+/** DuckDuckGo Icons：返回网站域名对应的 ico。 */
+export function getDuckDuckGoFaviconUrl(url: string) {
+  const hostname = getHostname(url)
+  return hostname ? `https://icons.duckduckgo.com/ip3/${hostname}.ico` : ''
+}
+
+/** 统一构造可选的远程图标 URL；纯色图标返回空串，由 Favicon 组件本地合成。 */
+export function getFaviconSourceUrl(url: string, source?: FaviconSource) {
+  // 未传 source 的旧调用继续走原先的 0x3，避免搜索引擎图标与存量逻辑被这次设置改掉。
+  if (!source)
+    return getFaviconUrl(url)
+  if (source === 'site')
+    return getSiteFaviconUrl(url)
+  if (source === 'google')
+    return getGoogleFaviconUrl(url)
+  if (source === 'duckduckgo')
+    return getDuckDuckGoFaviconUrl(url)
+  return ''
 }
 
 /** 已退役的代理地址：`/favicon/{domain}.png?size=128` */
@@ -49,12 +84,29 @@ const LEGACY_PROXY_RE = /^\/favicon\/([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\.png/
  * 放在读取点而不是「写回数据」：改写站长存的数据属于越权，而且云端那份他不一定
  * 立刻重新上传；读取时翻译对所有来源（Gist / 本地 / 访客缓存）一次生效。
  */
-export function resolveFaviconUrl(custom?: string | null, siteUrl?: string) {
+function isGeneratedFaviconUrl(raw: string, siteUrl: string) {
+  if (!raw)
+    return true
+  return [
+    getFaviconUrl(siteUrl),
+    getSiteFaviconUrl(siteUrl),
+    getGoogleFaviconUrl(siteUrl),
+    getDuckDuckGoFaviconUrl(siteUrl),
+  ].includes(raw)
+}
+
+export function resolveFaviconUrl(custom?: string | null, siteUrl?: string, source?: FaviconSource) {
   const raw = (custom || '').trim()
 
   const legacy = raw.match(LEGACY_PROXY_RE)
   if (legacy)
-    return getFaviconUrl(legacy[1])
+    return source ? getFaviconSourceUrl(legacy[1], source) : getFaviconUrl(legacy[1])
 
-  return safeFaviconUrl(raw) || getFaviconUrl(siteUrl || '')
+  // 空值和旧版本自动生成的 0x3 地址交给全局图标源选择；
+  // 但传入了不安全的自定义协议时，固定回退到旧的 0x3，保持安全验收口径。
+  if (isGeneratedFaviconUrl(raw, siteUrl || ''))
+    return getFaviconSourceUrl(siteUrl || '', source)
+
+  const safe = safeFaviconUrl(raw)
+  return safe || getFaviconUrl(siteUrl || '')
 }

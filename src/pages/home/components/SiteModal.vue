@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { getFaviconSourceUrl } from '@/utils'
+
 const modalStore = useModalStore()
+const wallpaperStore = useWallpaperStore()
 const errorInput = ref(false)
 
 /** 图标底色色板：仿极光Tab，最后一个是自定义取色 */
@@ -9,6 +12,18 @@ const ICON_COLORS = [
 ]
 
 const isSite = computed(() => modalStore.target === 'site')
+const previewUrl = computed(() => modalStore.inputValues.url.trim())
+const faviconPreviews = computed(() => {
+  const url = previewUrl.value
+  if (!url)
+    return []
+  return [
+    { key: 'site', label: '网站 favicon.ico', src: getFaviconSourceUrl(url, 'site') },
+    { key: 'google', label: 'Google 图标源', src: getFaviconSourceUrl(url, 'google') },
+    { key: 'duckduckgo', label: 'DuckDuckGo 图标源', src: getFaviconSourceUrl(url, 'duckduckgo') },
+    { key: 'solid', label: '纯色图标（本地）', src: '' },
+  ].map(item => ({ ...item, active: item.key === wallpaperStore.settings.faviconSource }))
+})
 
 function pickColor(color: string) {
   // 再次点击同一个颜色 = 取消底色（透明）
@@ -56,6 +71,20 @@ function handleAllCommit(_e: Event) {
         :status="errorInput && modalStore.inputValues.url.length <= 0 ? 'error' : 'success'"
         @keydown.enter="handleAllCommit"
       />
+      <div v-if="isSite && faviconPreviews.length" class="favicon-previews" aria-label="网址图标预览">
+        <div class="favicon-previews__title">
+          输入网址后可预览图标来源
+        </div>
+        <div class="favicon-previews__grid">
+          <div v-for="item in faviconPreviews" :key="item.key" class="favicon-preview" :class="{ active: item.active }">
+            <div class="favicon-preview__image">
+              <img v-if="item.src" :src="item.src" :alt="item.label" referrerpolicy="no-referrer">
+              <span v-else class="favicon-preview__solid">A</span>
+            </div>
+            <span>{{ item.label }}</span>
+          </div>
+        </div>
+      </div>
       <n-input
         v-if="isSite"
         v-model:value="modalStore.inputValues.favicon"
@@ -124,6 +153,72 @@ function handleAllCommit(_e: Event) {
 </template>
 
 <style lang="scss" scoped>
+.favicon-previews {
+  margin: -2px 0 12px;
+}
+
+.favicon-previews__title {
+  margin-bottom: 6px;
+  font-size: 12px;
+  opacity: .62;
+}
+
+.favicon-previews__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.favicon-preview {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 5px 3px;
+  border: 1px solid color-mix(in srgb, var(--text-c) 16%, transparent);
+  border-radius: 6px;
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+  opacity: .72;
+}
+
+.favicon-preview.active {
+  border-color: var(--wallpaper-accent, var(--primary-c));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 18%, transparent);
+  opacity: 1;
+}
+
+.favicon-preview__image {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--text-c) 9%, transparent);
+}
+
+.favicon-preview__image img,
+.favicon-preview__solid {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+}
+
+.favicon-preview__image img {
+  object-fit: contain;
+}
+
+.favicon-preview__solid {
+  display: grid;
+  place-items: center;
+  background: #4b5563;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .site-icon-label {
   margin: 12px 0 8px;
   font-size: 13px;

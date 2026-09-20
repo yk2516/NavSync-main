@@ -7,10 +7,14 @@
  */
 export type WallpaperSource = 'none' | 'url' | 'gradient'
 export type GlassEffect = 'classic' | 'liquid'
+/** 站点图标来源：网站默认 favicon、第三方服务，或本地合成纯色字母图标 */
+export type FaviconSource = 'site' | 'google' | 'duckduckgo' | 'solid'
 
 export interface WallpaperSettings {
   skin: string
   accent: string
+  /** 全局站点图标来源；每个设备独立保存，访客与站长分别保存 */
+  faviconSource: FaviconSource
   source: WallpaperSource
   imageUrl: string
   gradient: string

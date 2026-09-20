@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PropType } from 'vue'
-import { getRandomDarkColor, resolveFaviconUrl } from '@/utils'
-import type { Site } from '@/types'
+import { getFaviconSourceUrl, getRandomDarkColor, resolveFaviconUrl } from '@/utils'
+import type { FaviconSource, Site } from '@/types'
 
 const props = defineProps({
   site: {
@@ -11,18 +11,41 @@ const props = defineProps({
 })
 
 const { iconStyle } = useIconStyle()
+const wallpaperStore = useWallpaperStore()
 
-const isGen = ref(false)
 const imgLoaded = ref(false)
+const failedFaviconKey = ref('')
+
+const faviconSource = computed<FaviconSource>(() => wallpaperStore.settings.faviconSource || 'site')
+const hasCustomFavicon = computed(() => {
+  const raw = (props.site.favicon || '').trim()
+  if (!raw)
+    return false
+  // 旧代理地址需要在读取时按当前图标源自愈；普通同域相对路径则是用户明确填写的自定义图标，必须保留。
+  if (/^\/favicon\/[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\.png/.test(raw))
+    return false
+  return ![resolveFaviconUrl('', props.site.url), resolveFaviconUrl('', props.site.url, 'site'), resolveFaviconUrl('', props.site.url, 'google'), resolveFaviconUrl('', props.site.url, 'duckduckgo')].includes(raw)
+})
+const hasLegacyFavicon = computed(() => /^\/favicon\/[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\.png/.test((props.site.favicon || '').trim()))
+const hasStoredFavicon = computed(() => hasCustomFavicon.value || hasLegacyFavicon.value)
+const isSolid = computed(() => faviconSource.value === 'solid' && !hasStoredFavicon.value)
+const faviconUrl = computed(() => hasStoredFavicon.value
+  ? resolveFaviconUrl(props.site.favicon, props.site.url, faviconSource.value)
+  : getFaviconSourceUrl(props.site.url, faviconSource.value))
+const faviconKey = computed(() => `${props.site.url}|${faviconSource.value}|${faviconUrl.value}`)
+const isGen = computed(() => isSolid.value || failedFaviconKey.value === faviconKey.value)
 
 // 组件实例复用时（列表更新/切换 site），重置图片加载状态，避免旧站点的状态残留
-watch(() => props.site, () => {
-  isGen.value = false
+function resetFavicon() {
+  failedFaviconKey.value = ''
   imgLoaded.value = false
-}, { deep: true })
+}
+
+watch(() => props.site, resetFavicon, { deep: true })
+watch(faviconSource, resetFavicon)
 
 function handleFaviconError(site: Site) {
-  isGen.value = true
+  failedFaviconKey.value = faviconKey.value
   // 直接修改响应式 site 对象（其已在 store 数据中，天然响应式），
   // 避免依赖全局 cateIndex/groupIndex/siteIndex 造成多站点并发加载时的索引竞争
   if (site.bgColor)
@@ -54,12 +77,13 @@ const imgStyle = computed(() => {
 <template>
   <!-- 尺寸/圆角/不透明度来自壁纸面板的全局设置（CSS 变量），
        底色与边距来自站点自身的设置 -->
-  <div class="favicon-box" :style="boxStyle">
-    <div v-if="!isGen && !imgLoaded" class="favicon-skeleton" />
+  <div class="favicon-box" :style="boxStyle" :data-favicon-url="faviconUrl">
+    <div v-if="!isSolid && !isGen && !imgLoaded" class="favicon-skeleton" />
     <img
-      v-if="!isGen"
+      v-if="!isSolid && !isGen"
+      :key="`${site.url}-${faviconSource}-${faviconUrl}`"
       class="favicon-image"
-      :src="resolveFaviconUrl(site.favicon, site.url)"
+      :src="faviconUrl"
       decoding="async"
       loading="lazy"
       referrerpolicy="no-referrer"
@@ -67,7 +91,7 @@ const imgStyle = computed(() => {
       @error="handleFaviconError(site)"
       @load="imgLoaded = true"
     >
-    <div v-else class="favicon-fallback" :style="{ backgroundColor: site.bgColor || '#4b5563' }">
+    <div v-if="isSolid || isGen" class="favicon-fallback" :style="{ backgroundColor: site.bgColor || '#4b5563' }">
       {{ site.name.length > 0 ? site.name.toLocaleUpperCase().charAt(0) : 'c' }}
     </div>
   </div>

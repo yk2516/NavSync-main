@@ -375,16 +375,8 @@ button,
   border: 0;
 }
 
-/* ⚠️ 尺寸必须**显式**给，不能靠内容撑。
- *
- * `.site-card__box` 本来没有宽高，尺寸是内容撑出来的：站点卡片的内容是
- * 72px 的 favicon + 两侧内边距 → 91.8px，正好等于 `--site-card-box-size`。
- * 而「＋」的内容只是一个 26px 的图标 → 外框只有 53.3px：
- *   ① 比同排图标外框小一圈；
- *   ② 卡片没有名称行，flex 从顶边排起 → 外框贴格子顶端，
- *      实测 dy（外框中心相对格子中心）站点卡片是 -11.5px、「＋」是 -30.8px，
- *      看起来「又小又靠上」，跟同排同列都对不齐。
- * 显式写 `--site-card-box-size` 后两者完全重合（与编辑态的 `.group-block__add` 同源）。 */
+/* ⚠️ 尺寸必须显式给，不能靠内容撑：加号没有 favicon / 名称行，
+ * 否则外框会比站点外框小且偏上。 */
 .site-card--add .site-card__box {
   width: var(--site-card-box-size);
   height: var(--site-card-box-size);

@@ -142,6 +142,8 @@ export const WALLPAPER_GRADIENTS: { label: string; group: string; value: string 
 const DEFAULTS: WallpaperSettings = {
   skin: 'default',
   accent: '#0071e3',
+  // 新默认遵循网站自身标准位置；用户可在「高级壁纸」右侧切换第三方源或纯色图标。
+  faviconSource: 'site',
   source: 'none',
   imageUrl: '',
   gradient: '',
@@ -211,8 +213,14 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
     // 本地图片 / 壁纸文件夹 / 壁纸源网站已下线，旧设置里可能还存着这些来源：
     // 统一折回 none，否则会渲染出一个取不到图的黑屏。
     const source = (parsed.source === 'url' || parsed.source === 'gradient') ? parsed.source : 'none'
+    const faviconSource = (parsed.faviconSource === 'site'
+      || parsed.faviconSource === 'google'
+      || parsed.faviconSource === 'duckduckgo'
+      || parsed.faviconSource === 'solid')
+      ? parsed.faviconSource
+      : DEFAULTS.faviconSource
 
-    // ⚠️ 这里**逐字段白名单**构造，绝不写 `{ ...DEFAULTS, ...parsed }`。
+    // ⚠️ 这里**逐字段白名单**构造，绝不写 `{ ...DEFAULTS, ...parsed }`.
     //
     // `parsed` 是**用户存储里的原始对象**，里面可能躺着已下线能力的字段：
     // 本地图片的 base64（`image` 单张可达几百 KB、`recentImages` 还留 4 张）、
@@ -223,6 +231,7 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
     return {
       skin: typeof parsed.skin === 'string' ? parsed.skin : DEFAULTS.skin,
       accent: typeof parsed.accent === 'string' ? parsed.accent : DEFAULTS.accent,
+      faviconSource,
       source,
       imageUrl: (source === 'url' && typeof parsed.imageUrl === 'string') ? parsed.imageUrl : '',
       gradient: (source === 'gradient' && typeof parsed.gradient === 'string') ? parsed.gradient : '',

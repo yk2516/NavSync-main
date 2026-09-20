@@ -263,8 +263,17 @@ function resetLayout() {
         </section>
 
         <section class="wallpaper-section">
-          <div class="wallpaper-title">
-            高级壁纸（URL / 渐变）
+          <div class="wallpaper-title advanced-title">
+            <span>高级壁纸（URL / 渐变）</span>
+            <label class="favicon-source-control">
+              <span>图标源</span>
+              <select v-model="settings.faviconSource" aria-label="选择站点图标源">
+                <option value="site">网站 favicon.ico</option>
+                <option value="google">Google Favicon Service</option>
+                <option value="duckduckgo">DuckDuckGo Icons</option>
+                <option value="solid">纯色图标（本地合成）</option>
+              </select>
+            </label>
           </div>
           <div class="advanced-tabs">
             <button type="button" :class="{ active: activeSource === 'gradient' }" @click="activeSource = 'gradient'">
@@ -341,6 +350,18 @@ function resetLayout() {
 }
 .wallpaper-section:last-child { border-bottom: 0; }
 .wallpaper-title { margin-bottom: 10px; font-size: 14px; font-weight: 700; }
+.advanced-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.favicon-source-control { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 400; white-space: nowrap; }
+.favicon-source-control span { opacity: .62; }
+.favicon-source-control select {
+  max-width: 188px;
+  padding: 4px 6px;
+  border: 1px solid color-mix(in srgb, var(--text-c) 22%, transparent);
+  border-radius: 6px;
+  background: var(--main-bg-c);
+  color: inherit;
+  font: inherit;
+}
 .skin-group + .skin-group { margin-top: 12px; }
 .skin-group__title { margin-bottom: 6px; font-size: 12px; opacity: .62; }
 .skin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
