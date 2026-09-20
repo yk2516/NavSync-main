@@ -97,7 +97,8 @@ const renderStore = useRenderStore()
                   :title="site.name"
                   @click="e => handleSiteClick(site.url, i, index, e)"
                 >
-                  <Favicon :site="site" />
+                  <!-- 视觉外框挂在 __box 上，只包住图标（编辑态虚线框也贴着图标） -->
+                  <span class="site-card__box"><Favicon :site="site" /></span>
                   <span class="site-card__name">{{ site.name }}</span>
                 </a>
               </div>
@@ -106,7 +107,7 @@ const renderStore = useRenderStore()
               <!-- 不再限制「每分组 6 个」：容量现在由布局决定，超出部分浏览态会自动续页 -->
               <div v-if="!settingStore.isDragging" class="group-block__add">
                 <n-button
-                  class="h-full" type="primary" secondary :focusable="false"
+                  type="primary" secondary :focusable="false"
                   title="添加站点" aria-label="添加站点"
                   @click="modalStore.showModal('add', 'site', i)"
                 >
@@ -148,8 +149,27 @@ const renderStore = useRenderStore()
   margin-bottom: 12px;
 }
 
+/* 「添加站点」：做成与站点卡片同尺寸的虚线外框。
+ * 以前这个按钮带 `h-full`，在网格里被撑成一整块大灰矩形 —— 站点卡片改成
+ * 「外框贴合图标」之后，那一块灰底就显得特别突兀。尺寸/圆角与 `.site-card__box`
+ * 共用 `--site-card-box-*`（定义在 styles/public.scss）。 */
 .group-block__add {
-  min-height: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.group-block__add :deep(.n-button) {
+  width: var(--site-card-box-size);
+  height: var(--site-card-box-size);
+  padding: 0;
+  border: 1px dashed var(--setting-border-c);
+  border-radius: var(--site-card-box-radius);
+  background-color: transparent;
+}
+
+.group-block__add :deep(.n-button:hover) {
+  background-color: var(--site-hover-c);
 }
 
 /* 二级分组标题：强调色竖条 + 高对比文字 + 半透明胶囊底，在壁纸上也看得清 */

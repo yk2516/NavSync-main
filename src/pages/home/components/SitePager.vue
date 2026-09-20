@@ -281,7 +281,8 @@ onBeforeUnmount(() => {
                 @click="onSiteClick($event, site)"
                 @contextmenu="onSiteContextMenu($event, site)"
               >
-                <Favicon :site="site" />
+                <!-- 视觉外框挂在 __box 上，只包住图标（悬停底色不再铺满整个网格单元） -->
+                <span class="site-card__box"><Favicon :site="site" /></span>
                 <span class="site-card__name">{{ site.name }}</span>
               </a>
             </div>

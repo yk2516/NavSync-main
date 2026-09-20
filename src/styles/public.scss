@@ -39,7 +39,8 @@ body::-webkit-scrollbar {
 }
 .dragging {
   opacity: 1 !important;
-  .site__handle {
+  /* 拖拽幽灵同样要「外框贴合图标」：底色画在 __box 上，别让 ghost 又变成一整块灰底 */
+  .site__handle .site-card__box {
     background-color: var(--site-hover-c);
   }
   .group__handle {
@@ -284,6 +285,14 @@ button,
  *   SiteGroupList.vue   编辑态：分组标题置顶、纵向堆叠，便于跨分组拖拽
  * 网格的列数/行数/间距全部由壁纸面板的「自定义布局」通过 CSS 变量下发。 */
 
+/* 「贴合图标的外框」的统一尺寸。浏览态的站点卡片外框与编辑态的「添加站点」按钮共用，
+ * 两边都从图标大小推导 —— 想调松紧只改这里。 */
+:root {
+  --site-card-box-pad: clamp(6px, calc(var(--wallpaper-icon-size, 64px) * 0.14), 14px);
+  --site-card-box-radius: clamp(12px, calc(var(--wallpaper-icon-size, 64px) * 0.3), 26px);
+  --site-card-box-size: calc(var(--wallpaper-icon-size, 64px) + var(--site-card-box-pad) * 2);
+}
+
 .site-grid {
   display: grid;
   grid-template-columns: repeat(var(--layout-cols, 5), minmax(0, 1fr));
@@ -308,26 +317,47 @@ button,
 }
 
 /* 纵向卡片：图标在上、名称在下。原先的左图右文观感很差，用户明确要求改掉。
- * 不要给这里加 justify-items: center —— 卡片会缩成 max-content 宽度，
- * 长名称既无法省略号截断、又会顶破网格；居中交给卡片内部的 align-items 即可。 */
+ *
+ * 视觉外框（悬停底色 / 编辑态虚线框）挂在 `.site-card__box` 上 —— 它**只包住图标**。
+ * 用户反馈「图标外框 DIV 太大」：以前底色画在 `.site-card` 上，而卡片是网格单元
+ * （`1fr`，实测 173×115）→ 一整块灰底把图标和名称一起罩住。参照 inftab 的观感改成
+ * 「外框贴合图标」：底色只剩图标周围一圈浅晕，名称落在框外。
+ *
+ * 卡片本身仍然撑满整格 —— 点击热区不变、空白处照样能点，只是不再画出一大块底色。
+ * 因此**不要**给 `.site-card` 加 `justify-items: center` / `width: fit-content`：
+ * 那会让长名称既无法省略号截断、又会顶破网格（见下方注释）。 */
 .site-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 10px 4px;
-  border-radius: 12px;
+  /* 内边距归零：留白由 __box 的内边距负责，卡片只负责排布与热区 */
+  padding: 0;
   cursor: pointer;
+}
+
+/* 贴合图标的外框。尺寸随图标缩放：默认 72px 图标 → 内边距 10px、外框 92×92、圆角 21px
+ *
+ * `max-width` 是窄屏兜底：图标最大可设 140%（89.6px），而 390px 屏收敛到 3 列后
+ * 单元格只有 ~101px —— 外框（114.7px）会越过格线、和邻格外框叠在一起。
+ * 夹到 100% 后外框最多与单元格同宽，极端参数下只是「图标比外框略宽」，不会互相压。 */
+.site-card__box {
+  display: grid;
+  place-items: center;
+  max-width: 100%;
+  padding: var(--site-card-box-pad);
+  border-radius: var(--site-card-box-radius);
   transition: background-color .18s ease, transform .18s ease;
 }
 
-.site-card:not(.site-card--dragging):not(.site-card--invalid):hover {
+.site-card:not(.site-card--dragging):not(.site-card--invalid):hover .site-card__box {
   background-color: var(--site-hover-c);
   transform: translateY(-2px);
 }
 
 /* 链接非法（非 http/https）的站点卡片：不可点。
- * 一定要有可见的视觉差异 —— 卡片点不动又没有任何反馈，用户只会以为坏了。 */
+ * 一定要有可见的视觉差异 —— 卡片点不动又没有任何反馈，用户只会以为坏了。
+ * 变灰仍作用于整张卡片（图标 + 名称一起），不要挪到 __box 上。 */
 .site-card--invalid {
   cursor: not-allowed;
   opacity: .45;
@@ -344,12 +374,13 @@ button,
   opacity: .85;
 }
 
-.site--setting {
+/* 编辑态的虚线框同样贴着图标（`.site--setting` 这个类名被套件当作「处于编辑态」的标记，
+ * 必须留在 `.site-card` 上，只把边框画到里面的 __box） */
+.site--setting .site-card__box {
   border: 1px dashed var(--setting-border-c);
-  border-radius: 12px;
 }
 
-.site--setting:hover {
+.site--setting:hover .site-card__box {
   background-color: var(--site-hover-c);
 }
 
