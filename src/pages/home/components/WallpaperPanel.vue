@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { WALLPAPER_GRADIENTS, wallpaperSkins } from '@/stores/wallpaper'
-import { WALLPAPER_SOURCES, forgetWallpaperDirectory, isFolderPickerSupported, listImagesInDirectory, pickWallpaperDirectory } from '@/utils'
 
 const wallpaperStore = useWallpaperStore()
-const fileInput = ref<HTMLInputElement>()
-const activeSource = ref<'local' | 'url' | 'gradient'>('local')
+// 「本地图片」页签已移除（用户明确要求），只剩渐变与图片链接两个来源。
+// 渐变排第一并作为默认页签 —— 纯 CSS、零请求，是导航页最合适的壁纸形态。
+const activeSource = ref<'url' | 'gradient'>('gradient')
 const imageUrlInput = ref('')
 const gradientInput = ref('linear-gradient(135deg, #ff5364 0%, #ffb347 34%, #36d1dc 100%)')
 const imageError = ref('')
 
 const settings = computed(() => wallpaperStore.settings)
-const folderSupported = isFolderPickerSupported()
 
 /**
  * 皮肤按 group 分组展示（基础 / 清新 / 明亮 / 深色 / 品牌）。
@@ -53,106 +52,6 @@ function onPanelKeydown(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onPanelKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onPanelKeydown))
 
-function openFilePicker() {
-  fileInput.value?.click()
-}
-
-function readImage(file: File) {
-  imageError.value = ''
-  if (!file.type.startsWith('image/')) {
-    imageError.value = '请选择图片文件'
-    return
-  }
-  if (file.size > 8 * 1024 * 1024) {
-    imageError.value = '图片不能超过 8MB'
-    return
-  }
-
-  const reader = new FileReader()
-  reader.onload = () => {
-    const source = String(reader.result || '')
-    const image = new Image()
-    image.onload = () => {
-      // 压缩到适合壁纸的尺寸。localStorage 通常只有 5MB 配额，且「最近使用」
-      // 会额外存多张，尺寸/质量放太宽会导致写入静默失败、刷新后壁纸丢失。
-      const maxWidth = 1600
-      const maxHeight = 1000
-      const scale = Math.min(1, maxWidth / image.width, maxHeight / image.height)
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.max(1, Math.round(image.width * scale))
-      canvas.height = Math.max(1, Math.round(image.height * scale))
-      const context = canvas.getContext('2d')
-      if (!context) {
-        wallpaperStore.setImage(source, 'local')
-        return
-      }
-      context.drawImage(image, 0, 0, canvas.width, canvas.height)
-      wallpaperStore.setImage(canvas.toDataURL('image/jpeg', 0.82), 'local')
-    }
-    image.onerror = () => {
-      imageError.value = '图片无法读取'
-    }
-    image.src = source
-  }
-  reader.readAsDataURL(file)
-}
-
-function handleFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (file)
-    readImage(file)
-  input.value = ''
-}
-
-async function chooseFolder() {
-  imageError.value = ''
-  if (!folderSupported) {
-    imageError.value = '当前浏览器不支持选择文件夹（建议用 Chrome / Edge）'
-    return
-  }
-  const handle = await pickWallpaperDirectory()
-  if (!handle)
-    return
-
-  wallpaperStore.folderBusy = true
-  try {
-    const files = await listImagesInDirectory(handle)
-    if (!files.length) {
-      imageError.value = '该文件夹里没有找到图片'
-      return
-    }
-    wallpaperStore.setFolderImages(files, handle.name)
-    wallpaperStore.useFolderImage()
-    window.$message?.success(`已读取 ${files.length} 张图片，点右下角小风车随机换`, { duration: 3000 })
-  }
-  finally {
-    wallpaperStore.folderBusy = false
-  }
-}
-
-/**
- * 清除壁纸文件夹。
- * 除了清掉内存里的图片与 folderName，还必须把 IndexedDB 里的目录句柄一并删除 ——
- * 否则句柄会一直留在本机（小风车的恢复逻辑虽然被 folderName 挡住、不会读回它，
- * 但「清除」就该真的清干净）。
- */
-async function clearFolder() {
-  await forgetWallpaperDirectory()
-  wallpaperStore.releaseFolderImages()
-  wallpaperStore.update({ folderName: '' })
-}
-
-function applyWallpaperSource() {
-  imageError.value = ''
-  if (settings.value.imageSource === 'custom' && !settings.value.customSource.trim()) {
-    imageError.value = '请先填写自定义壁纸地址模板'
-    return
-  }
-  if (!wallpaperStore.useSourceWallpaper())
-    imageError.value = '无法生成壁纸地址，请检查来源设置'
-}
-
 function applyUrl() {
   const value = imageUrlInput.value.trim()
   if (!/^https?:\/\//i.test(value)) {
@@ -160,7 +59,7 @@ function applyUrl() {
     return
   }
   imageError.value = ''
-  wallpaperStore.setImage(value, 'url')
+  wallpaperStore.setImageUrl(value)
 }
 
 function applyGradient() {
@@ -182,10 +81,6 @@ function useGradientPreset(value: string) {
 function randomAccent() {
   const colors = ['#0071e3', '#4f7ff0', '#25c89f', '#24c5d7', '#9e83ee', '#ff9138', '#ef6d6d', '#f6b91e', '#db72e8', '#df68ac', '#35c4b4', '#98dc36']
   wallpaperStore.update({ accent: colors[Math.floor(Math.random() * colors.length)] })
-}
-
-function selectRecent(image: string) {
-  wallpaperStore.setImage(image, 'local')
 }
 
 function formatPercent(value: number) {
@@ -267,86 +162,16 @@ function resetLayout() {
 
         <section class="wallpaper-section">
           <div class="wallpaper-title">
-            背景图片（壁纸）
-          </div>
-          <div class="wallpaper-actions">
-            <button type="button" class="outline-button primary" @click="activeSource = 'local'; openFilePicker()">
-              选择图片
-            </button>
-            <button
-              v-if="folderSupported"
-              type="button"
-              class="outline-button primary"
-              :disabled="wallpaperStore.folderBusy"
-              @click="chooseFolder"
-            >
-              {{ wallpaperStore.folderBusy ? '读取中…' : '选择文件夹' }}
-            </button>
-            <button type="button" class="outline-button danger" @click="wallpaperStore.removeWallpaper">
-              移除图片
-            </button>
-            <input ref="fileInput" type="file" accept="image/*" hidden @change="handleFileChange">
-          </div>
-
-          <!-- 已授权的壁纸文件夹：小风车会从这里随机抽图 -->
-          <div v-if="settings.folderName || wallpaperStore.folderImages.length" class="folder-state">
-            <span class="folder-state__name" :title="settings.folderName">{{ settings.folderName || '壁纸文件夹' }}</span>
-            <span class="folder-state__count">{{ wallpaperStore.folderImages.length }} 张</span>
-            <button type="button" class="folder-state__clear" @click="clearFolder">
-              清除
-            </button>
-          </div>
-
-          <div v-if="settings.recentImages.length" class="recent-row">
-            <span class="recent-label">最近使用</span>
-            <button
-              v-for="(image, ri) in settings.recentImages" :key="image" type="button" class="recent-image"
-              :title="`使用最近的第 ${ri + 1} 张壁纸`" :aria-label="`使用最近的第 ${ri + 1} 张壁纸`"
-              @click="selectRecent(image)"
-            >
-              <img :src="image" alt="最近使用的壁纸">
-            </button>
-          </div>
-
-          <!-- 壁纸源网站 -->
-          <div class="wallpaper-title mt-16">
-            壁纸源网站
-          </div>
-          <div class="source-grid">
-            <button
-              v-for="item in WALLPAPER_SOURCES"
-              :key="item.id"
-              type="button"
-              class="source-card"
-              :class="{ active: settings.imageSource === item.id }"
-              :title="item.hint"
-              @click="wallpaperStore.update({ imageSource: item.id })"
-            >
-              {{ item.label }}
-            </button>
-          </div>
-          <div v-if="settings.imageSource === 'custom'" class="advanced-input mt-8">
-            <n-input v-model:value="settings.customSource" placeholder="https://example.com/{w}x{h}?r={r}" />
-          </div>
-          <div class="wallpaper-actions mt-8">
-            <button type="button" class="outline-button primary" @click="applyWallpaperSource">
-              应用该来源
-            </button>
-            <span class="source-hint">应用后点页面右下角小风车即可随机换图</span>
-          </div>
-
-          <div v-if="imageError" class="wallpaper-error">
-            {{ imageError }}
-          </div>
-        </section>
-
-        <section class="wallpaper-section">
-          <div class="wallpaper-title">
             站点图标
             <span class="panel-hint">形状 / 大小 / 圆角</span>
           </div>
-          <!-- 一键形状：直接写 iconRadius（圆形 = 50%，正圆）。复用 .advanced-tabs 的按钮外观 -->
-          <div class="advanced-tabs icon-shape-row">
+          <!--
+            一键形状：直接写 iconRadius（圆形 = 50%，正圆）。
+            ⚠️ 这里**不能**复用 `.advanced-tabs` 类 —— 那是「高级壁纸」来源页签的专属标记，
+            套件按 `.advanced-tabs button` 取页签列表，混进这三个按钮会把「只剩渐变/图片链接」
+            的断言顶红。形状行用自己的 `.icon-shape-row`。
+          -->
+          <div class="icon-shape-row">
             <button type="button" :class="{ active: settings.iconRadius >= 48 }" @click="wallpaperStore.update({ iconRadius: 50 })">
               圆形
             </button>
@@ -442,14 +267,11 @@ function resetLayout() {
             高级壁纸（URL / 渐变）
           </div>
           <div class="advanced-tabs">
-            <button type="button" :class="{ active: activeSource === 'local' }" @click="activeSource = 'local'">
-              本地图片
+            <button type="button" :class="{ active: activeSource === 'gradient' }" @click="activeSource = 'gradient'">
+              渐变
             </button>
             <button type="button" :class="{ active: activeSource === 'url' }" @click="activeSource = 'url'">
               图片链接
-            </button>
-            <button type="button" :class="{ active: activeSource === 'gradient' }" @click="activeSource = 'gradient'">
-              渐变
             </button>
           </div>
           <div v-if="activeSource === 'url'" class="advanced-input">
@@ -463,6 +285,10 @@ function resetLayout() {
             <button type="button" class="outline-button primary" @click="applyGradient">
               应用
             </button>
+          </div>
+          <!-- 校验提示必须真的渲染出来：之前 imageError 只赋值不显示，格式填错时界面毫无反应 -->
+          <div v-if="imageError" class="wallpaper-error" role="alert">
+            {{ imageError }}
           </div>
           <!-- 现成配色，点一下直接应用；也可以点完再改输入框里的色值 -->
           <div v-if="activeSource === 'gradient'" class="gradient-groups">
@@ -518,7 +344,7 @@ function resetLayout() {
 .skin-group + .skin-group { margin-top: 12px; }
 .skin-group__title { margin-bottom: 6px; font-size: 12px; opacity: .62; }
 .skin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.skin-card, .glass-card, .advanced-tabs button, .recent-image, .source-card, .gradient-preset {
+.skin-card, .glass-card, .advanced-tabs button, .icon-shape-row button, .gradient-preset {
   border: 1px solid color-mix(in srgb, var(--text-c) 18%, transparent);
   background: color-mix(in srgb, var(--main-bg-c) 70%, transparent);
   color: inherit;
@@ -526,8 +352,8 @@ function resetLayout() {
   transition: border-color .2s, transform .2s, box-shadow .2s;
 }
 .skin-card, .gradient-preset { display: grid; gap: 4px; padding: 4px; border-radius: 8px; font-size: 12px; line-height: 1.25; }
-.skin-card:hover, .glass-card:hover, .source-card:hover, .gradient-preset:hover { transform: translateY(-1px); }
-.skin-card.active, .glass-card.active, .advanced-tabs button.active, .source-card.active, .gradient-preset.active { border-color: var(--wallpaper-accent, var(--primary-c)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 22%, transparent); }
+.skin-card:hover, .glass-card:hover, .gradient-preset:hover { transform: translateY(-1px); }
+.skin-card.active, .glass-card.active, .advanced-tabs button.active, .icon-shape-row button.active, .gradient-preset.active { border-color: var(--wallpaper-accent, var(--primary-c)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 22%, transparent); }
 /* 皮肤有 40+ 套，预览条压到 30px 才不至于把面板拉太长 */
 .skin-preview { height: 30px; border-radius: 5px; }
 /* 渐变预设：3 列，点一下直接应用。分「清新柔和 / 强对比」两组展示 */
@@ -535,25 +361,15 @@ function resetLayout() {
 .preset-group__title { margin: 10px 0 6px; font-size: 12px; opacity: .62; }
 .gradient-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .gradient-preset__preview { height: 26px; border-radius: 5px; }
-.accent-controls, .wallpaper-actions, .advanced-input, .wallpaper-footer, .recent-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.accent-controls, .advanced-input, .wallpaper-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .accent-controls input[type='color'] { width: 36px; height: 28px; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .accent-controls code { opacity: .72; }
 .outline-button, .clear-button { padding: 6px 12px; border: 1px solid color-mix(in srgb, var(--text-c) 22%, transparent); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
 .outline-button:disabled { opacity: .5; cursor: default; }
 .outline-button.primary { color: var(--wallpaper-accent, var(--primary-c)); }
 .outline-button.danger, .clear-button { color: #d03050; }
-.folder-state { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 6px 10px; border-radius: 8px; font-size: 12px; background: color-mix(in srgb, var(--main-bg-c) 60%, transparent); }
-.folder-state__name { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
-.folder-state__count { opacity: .62; }
-.folder-state__clear { border: 0; background: transparent; color: #d03050; font-size: 12px; cursor: pointer; }
-.recent-row { margin-top: 12px; }
-.recent-label { width: 100%; font-size: 12px; opacity: .62; }
-.recent-image { width: 56px; height: 40px; padding: 0; overflow: hidden; border-radius: 5px; }
-.recent-image img { width: 100%; height: 100%; object-fit: cover; }
+/* 高级壁纸的校验提示（URL / 渐变格式填错时） */
 .wallpaper-error { margin-top: 8px; color: #d03050; font-size: 12px; }
-.source-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.source-card { padding: 8px 10px; border-radius: 8px; font-size: 12px; text-align: left; }
-.source-hint { font-size: 12px; opacity: .62; }
 .glass-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .glass-card { display: grid; gap: 5px; padding: 10px; text-align: left; border-radius: 8px; }
 .glass-card small { opacity: .62; }
@@ -564,8 +380,8 @@ function resetLayout() {
 .sliders input[type='range'] { width: 100%; accent-color: var(--wallpaper-accent, var(--primary-c)); }
 .sliders b { text-align: right; font-weight: 400; opacity: .72; }
 .sliders .checkbox-label { display: flex; grid-template-columns: unset; justify-content: flex-start; }
-.advanced-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
-.advanced-tabs button { padding: 5px 10px; border-radius: 6px; }
+.advanced-tabs, .icon-shape-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.advanced-tabs button, .icon-shape-row button { padding: 5px 10px; border-radius: 6px; }
 /* 图标形状：三个等宽按钮 */
 .icon-shape-row button { flex: 1; }
 .advanced-input { align-items: stretch; flex-wrap: nowrap; }
@@ -595,6 +411,4 @@ function resetLayout() {
 }
 .layout-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .layout-hint { flex: 1; font-size: 12px; opacity: .62; }
-.mt-8 { margin-top: 8px; }
-.mt-16 { margin-top: 16px; }
 </style>

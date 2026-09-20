@@ -1,14 +1,19 @@
-export type WallpaperSource = 'none' | 'local' | 'url' | 'gradient' | 'folder' | 'source'
+/**
+ * 壁纸来源。
+ *
+ * ⚠️ 只有这三种：本地图片 / 壁纸文件夹 / 壁纸源网站（Picsum、必应…）已于 2026-09-20
+ * 按用户要求**整块移除** —— 它们的「下载 + 解码」注定做不到秒开，而皮肤与渐变是纯 CSS。
+ * 图片壁纸仍可通过 `url` 贴外链。
+ */
+export type WallpaperSource = 'none' | 'url' | 'gradient'
 export type GlassEffect = 'classic' | 'liquid'
 
 export interface WallpaperSettings {
   skin: string
   accent: string
   source: WallpaperSource
-  image: string
   imageUrl: string
   gradient: string
-  recentImages: string[]
   glass: GlassEffect
   wallpaperOpacity: number
   wallpaperBlur: number
@@ -21,12 +26,6 @@ export interface WallpaperSettings {
   iconOpacity: number
   /** 图标大小（%，100 表示 64px） */
   iconSize: number
-  /** 壁纸源网站 id */
-  imageSource: string
-  /** 自定义壁纸源 URL 模板，支持 {w} {h} {r} 占位符 */
-  customSource: string
-  /** 已授权的壁纸文件夹名（仅用于展示，句柄存在 IndexedDB） */
-  folderName: string
   /** 自定义布局：每页行数 */
   layoutRows: number
   /** 自定义布局：每页列数 */
@@ -39,12 +38,4 @@ export interface WallpaperSettings {
   searchWidth: number
   /** 搜索框圆角（px） */
   searchRadius: number
-}
-
-export interface WallpaperSourceItem {
-  id: string
-  label: string
-  hint?: string
-  /** 生成一次随机壁纸地址；r 为随机种子 */
-  build: (width: number, height: number, r: number) => string
 }

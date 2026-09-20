@@ -1,6 +1,5 @@
 import type { WallpaperSettings } from '@/types'
 import { readStore, writeStore } from '@/utils'
-import { buildWallpaperUrl } from '@/utils/wallpaperSource'
 
 const STORAGE_KEY_ADMIN = 'wallpaper_admin'
 const STORAGE_KEY_VIEWER = 'wallpaper_viewer'
@@ -144,10 +143,8 @@ const DEFAULTS: WallpaperSettings = {
   skin: 'default',
   accent: '#0071e3',
   source: 'none',
-  image: '',
   imageUrl: '',
   gradient: '',
-  recentImages: [],
   glass: 'classic',
   wallpaperOpacity: 60,
   wallpaperBlur: 0,
@@ -159,9 +156,6 @@ const DEFAULTS: WallpaperSettings = {
   iconRadius: 50,
   iconOpacity: 100,
   iconSize: 112,
-  imageSource: 'picsum',
-  customSource: '',
-  folderName: '',
   // 自定义布局默认值：2 行 × 5 列，间距各 30%（相对图标大小）
   layoutRows: 2,
   layoutCols: 5,
@@ -176,38 +170,89 @@ function storageKey(isAdmin: boolean) {
   return isAdmin ? STORAGE_KEY_ADMIN : STORAGE_KEY_VIEWER
 }
 
+/**
+ * 已下线能力在 localStorage 里留下的字段。
+ *
+ * 「本地图片」存的是 base64（单张可达几百 KB，`recentImages` 还留 4 张）、
+ * 壁纸文件夹名、壁纸源 id —— 这些都不再被读取，但会**一直占着 localStorage 配额**
+ * （5MB 级别，且是同源共享）。`loadSettings()` 只在内存里把它们折掉、不写回，
+ * 所以需要单独清一次。
+ */
+const LEGACY_WALLPAPER_KEYS = ['image', 'recentImages', 'imageSource', 'customSource', 'folderName']
+
+/**
+ * 把存储里的旧字段清掉（重写为迁移后的干净设置）。
+ *
+ * 只在**确实存在**这些键时才写盘 —— 否则每次启动都会多一次同步写。
+ * 返回是否真的写了，便于测试断言。
+ */
+function purgeLegacyKeys(isAdmin: boolean) {
+  const raw = readStore(storageKey(isAdmin))
+  if (!raw)
+    return false
+  if (!LEGACY_WALLPAPER_KEYS.some(key => raw.includes(`"${key}":`)))
+    return false
+  // 重新走一遍 loadSettings，写回去的一定是清洗过的值（不直接改 raw）
+  writeStore(storageKey(isAdmin), JSON.stringify(loadSettings(isAdmin)))
+  return true
+}
+
 function loadSettings(isAdmin: boolean): WallpaperSettings {
   const raw = readStore(storageKey(isAdmin))
   if (!raw)
-    return { ...DEFAULTS, recentImages: [] }
+    return { ...DEFAULTS }
 
   try {
-    const parsed = JSON.parse(raw) as Partial<WallpaperSettings>
+    const parsed = JSON.parse(raw) as Partial<WallpaperSettings> & Record<string, unknown>
     // 图标外观的旧默认值是「圆角方形 26% + 100% 大小」，已改为「正圆 50% + 112%」。
     // 只要两项都还停在旧默认值，就判定为「没手动调过」并迁移到新默认值；
     // 任一项被改过（哪怕是刻意调回 26%）都原样保留，不覆盖用户的显式选择。
     const legacyIconLook = parsed.iconRadius === 26 && parsed.iconSize === 100
+    // 本地图片 / 壁纸文件夹 / 壁纸源网站已下线，旧设置里可能还存着这些来源：
+    // 统一折回 none，否则会渲染出一个取不到图的黑屏。
+    const source = (parsed.source === 'url' || parsed.source === 'gradient') ? parsed.source : 'none'
+
+    // ⚠️ 这里**逐字段白名单**构造，绝不写 `{ ...DEFAULTS, ...parsed }`。
+    //
+    // `parsed` 是**用户存储里的原始对象**，里面可能躺着已下线能力的字段：
+    // 本地图片的 base64（`image` 单张可达几百 KB、`recentImages` 还留 4 张）、
+    // 壁纸文件夹名、壁纸源 id。展开它 = 这些字段会跟着 settings 一起被写回
+    // localStorage，于是每次 persist 都要同步序列化 1~2MB —— 正是 2026-09-20
+    // 那轮「写盘防抖」要修掉的开销，等于白修。
+    // 未知键一律丢弃（与 `stores/setting.ts` 的 `pickKnownSettings()` 同一原则）。
     return {
-      ...DEFAULTS,
-      ...parsed,
-      // 文件夹壁纸体积不可控，只留在内存里，刷新后由小风车重新抽取
-      image: parsed.source === 'folder' ? '' : (parsed.image || ''),
-      source: parsed.source === 'folder' ? 'none' : (parsed.source || 'none'),
+      skin: typeof parsed.skin === 'string' ? parsed.skin : DEFAULTS.skin,
+      accent: typeof parsed.accent === 'string' ? parsed.accent : DEFAULTS.accent,
+      source,
+      imageUrl: (source === 'url' && typeof parsed.imageUrl === 'string') ? parsed.imageUrl : '',
+      gradient: (source === 'gradient' && typeof parsed.gradient === 'string') ? parsed.gradient : '',
+      glass: parsed.glass === 'liquid' ? 'liquid' : DEFAULTS.glass,
+      wallpaperOpacity: clamp(parsed.wallpaperOpacity, 0, 100, DEFAULTS.wallpaperOpacity),
+      wallpaperBlur: clamp(parsed.wallpaperBlur, 0, 32, DEFAULTS.wallpaperBlur),
+      inputOpacity: clamp(parsed.inputOpacity, 0, 100, DEFAULTS.inputOpacity),
       // 旧版本的「弹窗透明度」默认 40，但当时没有任何 CSS 消费它、从未生效。
       // 现在真正接上了，40% 不透明的弹窗读不清，迁移到新的可读默认值。
-      popupOpacity: parsed.popupOpacity === 40 ? DEFAULTS.popupOpacity : (parsed.popupOpacity ?? DEFAULTS.popupOpacity),
-      ...(legacyIconLook ? { iconRadius: DEFAULTS.iconRadius, iconSize: DEFAULTS.iconSize } : {}),
-      recentImages: Array.isArray(parsed.recentImages) ? parsed.recentImages.slice(0, 4) : [],
+      popupOpacity: parsed.popupOpacity === 40
+        ? DEFAULTS.popupOpacity
+        : clamp(parsed.popupOpacity, 0, 100, DEFAULTS.popupOpacity),
+      autoDim: typeof parsed.autoDim === 'boolean' ? parsed.autoDim : DEFAULTS.autoDim,
+      iconRadius: clamp(legacyIconLook ? DEFAULTS.iconRadius : parsed.iconRadius,
+        0, 50, DEFAULTS.iconRadius),
+      iconOpacity: clamp(parsed.iconOpacity, 10, 100, DEFAULTS.iconOpacity),
+      iconSize: clamp(legacyIconLook ? DEFAULTS.iconSize : parsed.iconSize,
+        40, 140, DEFAULTS.iconSize),
       // 布局字段是后加的，旧数据里没有；即便有也可能是脏值，统一在这里夹到合法区间，
       // 否则 0 列 / NaN 会让网格塌成一条线，而面板滑块也会显示成怪值。
-      layoutRows: clamp(parsed.layoutRows ?? DEFAULTS.layoutRows, 1, 6, DEFAULTS.layoutRows),
-      layoutCols: clamp(parsed.layoutCols ?? DEFAULTS.layoutCols, 2, 8, DEFAULTS.layoutCols),
-      layoutColGap: clamp(parsed.layoutColGap ?? DEFAULTS.layoutColGap, 0, 80, DEFAULTS.layoutColGap),
-      layoutRowGap: clamp(parsed.layoutRowGap ?? DEFAULTS.layoutRowGap, 0, 80, DEFAULTS.layoutRowGap),
+      layoutRows: clamp(parsed.layoutRows, 1, 6, DEFAULTS.layoutRows),
+      layoutCols: clamp(parsed.layoutCols, 2, 8, DEFAULTS.layoutCols),
+      layoutColGap: clamp(parsed.layoutColGap, 0, 80, DEFAULTS.layoutColGap),
+      layoutRowGap: clamp(parsed.layoutRowGap, 0, 80, DEFAULTS.layoutRowGap),
+      searchWidth: clamp(parsed.searchWidth, 260, 900, DEFAULTS.searchWidth),
+      searchRadius: clamp(parsed.searchRadius, 0, 28, DEFAULTS.searchRadius),
     }
   }
   catch {
-    return { ...DEFAULTS, recentImages: [] }
+    return { ...DEFAULTS }
   }
 }
 
@@ -215,7 +260,12 @@ function safeUrl(url: string) {
   return url.replace(/"/g, '\\"').replace(/\n/g, '')
 }
 
-function clamp(value: number, min: number, max: number, fallback: number) {
+/**
+ * 把外部来的数值夹到合法区间。
+ * `value` 故意声明成 `unknown`：调用方传进来的往往是「用户存储里读出来的值」，
+ * 可能是 undefined / 字符串 / NaN，用 `number` 会逼着调用方到处写断言。
+ */
+function clamp(value: unknown, min: number, max: number, fallback: number) {
   const n = Number(value)
   if (!Number.isFinite(n))
     return fallback
@@ -318,9 +368,6 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
   const adminStore = useAdminStore()
   const settings = ref<WallpaperSettings>(loadSettings(adminStore.isAdmin))
   const panelVisible = ref(false)
-  /** 已授权文件夹里的图片（内存态，不入 localStorage） */
-  const folderImages = ref<{ name: string; url: string }[]>([])
-  const folderBusy = ref(false)
   let skipPersist = false
   let lastToneKey = ''
   let toneToken = 0
@@ -374,18 +421,14 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
   function persist() {
     if (skipPersist)
       return
-    const snapshot = { ...settings.value }
-    // 文件夹壁纸是 objectURL，刷新即失效，持久化没有意义还会写爆配额
-    if (snapshot.source === 'folder')
-      snapshot.image = ''
     // 图片超出 localStorage 配额：当前会话仍可用，但刷新后会丢失。
     // 不阻断页面，只留一条线索便于排查。
-    if (!writeStore(storageKey(isAdmin.value), JSON.stringify(snapshot)))
+    if (!writeStore(storageKey(isAdmin.value), JSON.stringify(settings.value)))
       console.warn('[wallpaper] 壁纸保存失败，可能图片过大超出 localStorage 配额')
   }
 
   // 拖滑块会以每帧一次的速度改动 settings，而 persist 是同步写 localStorage
-  // （设置里可能有 1~2MB 的 base64 图片），必须合并写入，否则拖动直接卡住。
+  // （URL 壁纸的地址可能很长），必须合并写入，否则拖动直接卡住。
   let persistTimer: ReturnType<typeof setTimeout> | undefined
 
   function schedulePersist() {
@@ -414,15 +457,8 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     const body = document.body
     const current = settings.value
     const skin = SKINS[current.skin] || SKINS.default
-    let image = ''
-    if (current.source === 'local' && current.image)
-      image = current.image
-    else if (current.source === 'folder' && current.image)
-      image = current.image
-    else if (current.source === 'url' && current.imageUrl)
-      image = current.imageUrl
-    else if (current.source === 'source' && current.imageUrl)
-      image = current.imageUrl
+    // 本地图片 / 文件夹 / 壁纸源已下线，现在只可能来自外链 URL
+    const image = current.source === 'url' ? current.imageUrl : ''
 
     root.style.setProperty('--wallpaper-skin', skin.background)
     root.style.setProperty('--wallpaper-accent', current.accent || '#0071e3')
@@ -475,136 +511,67 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
   }
 
   function setSkin(skin: string) {
-    update({ skin, source: 'none', image: '', imageUrl: '', gradient: '' })
+    update({ skin, source: 'none', imageUrl: '', gradient: '' })
   }
 
-  function setImage(image: string, source: 'local' | 'url' = 'local') {
-    update({ source, image: source === 'local' ? image : '', imageUrl: source === 'url' ? image : '', gradient: '' })
-    if (image && source === 'local') {
-      const recentImages = [image, ...settings.value.recentImages.filter(item => item !== image)].slice(0, 4)
-      update({ recentImages })
-    }
+  function setImageUrl(imageUrl: string) {
+    update({ source: 'url', imageUrl, gradient: '' })
   }
 
   function setGradient(gradient: string) {
-    update({ source: 'gradient', gradient, image: '', imageUrl: '' })
+    update({ source: 'gradient', gradient, imageUrl: '' })
   }
 
   function removeWallpaper() {
-    update({ source: 'none', image: '', imageUrl: '', gradient: '' })
+    update({ source: 'none', imageUrl: '', gradient: '' })
   }
 
   function reset() {
-    settings.value = { ...DEFAULTS, recentImages: [] }
+    settings.value = { ...DEFAULTS }
     persist()
     apply()
   }
 
-  // ---------- 文件夹壁纸 ----------
-
-  /** 释放旧的 objectURL，避免反复选文件夹时内存泄漏 */
-  function releaseFolderImages() {
-    folderImages.value.forEach(item => URL.revokeObjectURL(item.url))
-    folderImages.value = []
-  }
-
-  function setFolderImages(files: File[], folderName: string) {
-    releaseFolderImages()
-    folderImages.value = files.map(file => ({ name: file.name, url: URL.createObjectURL(file) }))
-    update({ folderName })
-  }
-
-  function pickFolderImage(): string {
-    if (!folderImages.value.length)
-      return ''
-    const item = folderImages.value[Math.floor(Math.random() * folderImages.value.length)]
-    return item.url
-  }
-
-  function useFolderImage() {
-    const url = pickFolderImage()
-    if (!url)
-      return false
-    update({ source: 'folder', image: url, imageUrl: '', gradient: '' })
-    return true
-  }
-
-  // ---------- 壁纸源网站 ----------
+  // ---------- 小风车：随机换皮肤 / 渐变 ----------
 
   /**
-   * 「下一张」预加载 —— 让换壁纸从「等下载」变成「瞬时」。
+   * 从列表里随机挑一个**与当前不同**的项。
    *
-   * 为什么必须做：壁纸源的地址每次都带新的随机种子（`?random=` / `?t=Date.now()`），
-   * 所以每次换图都是一个**从未见过的 URL**，浏览器缓存必然失效 —— 用户点一下小风车，
-   * 要等完整的「DNS + 连接 + 下载 200KB + 解码」才能看到图（实测单张 1.5~3s）。
-   *
-   * 做法：把「生成下一张地址」和「下载下一张」都提到用户点击**之前**。
-   * 点击时直接切到那张已经躺在缓存里的图 → 瞬时；点完立刻再备新的下一张，滚动循环。
-   *
-   * ⚠️ **两种 CORS 模式都要预热**：CSS `background-image` 走 no-cors，而亮度采样
-   * （`imageLuminance`）走 `crossOrigin='anonymous'`。浏览器缓存按「URL + 请求模式」
-   * 分开存，只预热一种的话另一种仍要重新下载 —— 那就还是两次下载，只是提前了一次。
-   *
-   * 只在用户已经在用壁纸源（`source === 'source'`）时才预热：访客的默认设置是
-   * `source: 'none'`，不该白下载图片。
+   * 写成「先过滤掉当前项、再随机」而不是「随机后 while 重抽」：
+   * 后者在列表只剩 1 项时会死循环，而这里是 O(n) 且不可能卡住。
    */
-  let nextSourceUrl = ''
-  let preloadRefs: HTMLImageElement[] = []
-
-  function preloadWallpaper(url: string) {
-    if (!url || typeof Image === 'undefined')
-      return
-    const plain = new Image()
-    plain.src = url
-    const cors = new Image()
-    cors.crossOrigin = 'anonymous'
-    cors.src = url
-    // 持住引用，避免加载尚未完成就被回收；只留最近几轮，不让它无限增长
-    preloadRefs.push(plain, cors)
-    while (preloadRefs.length > 8)
-      preloadRefs.shift()
+  function pickDifferent<T>(list: T[], current: T): T | undefined {
+    if (!list.length)
+      return undefined
+    if (list.length === 1)
+      return list[0]
+    const others = list.filter(item => item !== current)
+    return others[Math.floor(Math.random() * others.length)]
   }
 
   /**
-   * 备好下一张壁纸。
-   * `source` 不是壁纸源时只清状态、不下载 —— 换了皮肤或本地图之后，
-   * 原来预热的那个地址已经用不上了。
-   * 已经备好就直接返回：避免同一个 tick 里被 watch 和调用点各备一张（那是两张不同的图）。
+   * 小风车：随机换一套皮肤或渐变壁纸，返回换了哪一种。
+   *
+   * 为什么不再是「随机换一张图片」：本地图片 / 壁纸文件夹 / 壁纸源网站已按用户要求移除。
+   * 皮肤与渐变都是纯 CSS —— 零请求、零解码，点下去下一帧就变，这才是「秒开」的做法。
+   *
+   * 皮肤与渐变各 50% 概率：两种都算「壁纸」，都该有机会被抽到。
+   * 抽到 `default` 皮肤（背景 none，交主题底色）是合法结果，不特殊处理。
    */
-  function prepareNextWallpaper() {
-    if (settings.value.source !== 'source') {
-      nextSourceUrl = ''
-      preloadRefs = []
-      return
+  function shuffleWallpaper(): 'skin' | 'gradient' | 'none' {
+    const useSkin = Math.random() < 0.5
+    if (useSkin) {
+      const key = pickDifferent(Object.keys(SKINS), settings.value.skin)
+      if (!key)
+        return 'none'
+      update({ skin: key, source: 'none', imageUrl: '', gradient: '' })
+      return 'skin'
     }
-    if (nextSourceUrl)
-      return
-    nextSourceUrl = buildWallpaperUrl(settings.value.imageSource, settings.value.customSource)
-    preloadWallpaper(nextSourceUrl)
-  }
-
-  function useSourceWallpaper() {
-    // 优先用已经预热好的那张（它已经在浏览器缓存里了）
-    const url = nextSourceUrl || buildWallpaperUrl(settings.value.imageSource, settings.value.customSource)
-    if (!url)
-      return false
-    nextSourceUrl = ''
-    update({ source: 'source', imageUrl: url, image: '', gradient: '' })
-    // 点完立刻备下一张：等用户下次点小风车时，它已经就绪
-    prepareNextWallpaper()
-    return true
-  }
-
-  /**
-   * 小风车：点一下换一张壁纸。
-   * 优先从已授权的文件夹里抽，其次从选定的壁纸源拉。
-   */
-  function shuffleWallpaper() {
-    if (folderImages.value.length && useFolderImage())
-      return 'folder'
-    if (useSourceWallpaper())
-      return 'source'
-    return 'none'
+    const gradient = pickDifferent(WALLPAPER_GRADIENTS.map(item => item.value), settings.value.gradient)
+    if (!gradient)
+      return 'none'
+    update({ source: 'gradient', gradient, imageUrl: '' })
+    return 'gradient'
   }
 
   function openPanel() {
@@ -626,6 +593,7 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
       persistTimer = undefined
     }
     settings.value = loadSettings(value)
+    purgeLegacyKeys(value)
     nextTick(() => {
       apply()
       setTimeout(() => {
@@ -643,43 +611,26 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
   if (typeof window !== 'undefined')
     window.addEventListener('beforeunload', flushPersist)
 
-  // 换了壁纸源 / 自定义地址模板 → 之前预热的地址作废，重新备一张
-  watch(() => [settings.value.imageSource, settings.value.customSource], () => {
-    nextSourceUrl = ''
-    prepareNextWallpaper()
-  })
-
-  // 不再用壁纸源（换皮肤 / 本地图 / 清空）→ 丢掉预热的地址，别继续下载
-  watch(() => settings.value.source, (value) => {
-    if (value !== 'source')
-      prepareNextWallpaper()
-  })
-
-  // 刷新后如果上次用的就是壁纸源，提前把下一张备好（首次点击就不用等下载了）
-  prepareNextWallpaper()
-
   apply()
+
+  // 清掉旧版本留下的、已下线能力的字段（本地图片的 base64 最多能占 1~2MB 配额）。
+  // 放在 apply() 之后：此时 settings 已经是迁移过的值，写回去的就是干净数据。
+  purgeLegacyKeys(isAdmin.value)
 
   return {
     settings,
     panelVisible,
     isAdmin,
-    folderImages,
-    folderBusy,
     update,
     // 供 App.vue 在启动时把壁纸变量注入 DOM；此前遗漏导出会导致 setup 抛错、整页白屏
     apply,
     setSkin,
-    setImage,
+    setImageUrl,
     setGradient,
     removeWallpaper,
     reset,
     openPanel,
     closePanel,
-    setFolderImages,
-    releaseFolderImages,
-    useFolderImage,
-    useSourceWallpaper,
     shuffleWallpaper,
   }
 })
