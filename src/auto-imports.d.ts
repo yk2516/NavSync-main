@@ -13,6 +13,7 @@ declare global {
   const $toRef: typeof import('vue/macros')['$toRef']
   const EffectScope: typeof import('vue')['EffectScope']
   const ICON_BASE_SIZE: typeof import('./stores/wallpaper')['ICON_BASE_SIZE']
+  const WALLPAPER_GRADIENTS: typeof import('./stores/wallpaper')['WALLPAPER_GRADIENTS']
   const acceptHMRUpdate: typeof import('pinia')['acceptHMRUpdate']
   const asyncComputed: typeof import('@vueuse/core')['asyncComputed']
   const autoResetRef: typeof import('@vueuse/core')['autoResetRef']
@@ -345,6 +346,7 @@ declare module 'vue' {
     readonly $toRef: UnwrapRef<typeof import('vue/macros')['$toRef']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly ICON_BASE_SIZE: UnwrapRef<typeof import('./stores/wallpaper')['ICON_BASE_SIZE']>
+    readonly WALLPAPER_GRADIENTS: UnwrapRef<typeof import('./stores/wallpaper')['WALLPAPER_GRADIENTS']>
     readonly acceptHMRUpdate: UnwrapRef<typeof import('pinia')['acceptHMRUpdate']>
     readonly asyncComputed: UnwrapRef<typeof import('@vueuse/core')['asyncComputed']>
     readonly autoResetRef: UnwrapRef<typeof import('@vueuse/core')['autoResetRef']>
@@ -671,6 +673,7 @@ declare module '@vue/runtime-core' {
     readonly $toRef: UnwrapRef<typeof import('vue/macros')['$toRef']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly ICON_BASE_SIZE: UnwrapRef<typeof import('./stores/wallpaper')['ICON_BASE_SIZE']>
+    readonly WALLPAPER_GRADIENTS: UnwrapRef<typeof import('./stores/wallpaper')['WALLPAPER_GRADIENTS']>
     readonly acceptHMRUpdate: UnwrapRef<typeof import('pinia')['acceptHMRUpdate']>
     readonly asyncComputed: UnwrapRef<typeof import('@vueuse/core')['asyncComputed']>
     readonly autoResetRef: UnwrapRef<typeof import('@vueuse/core')['autoResetRef']>

@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import SettingSelection from './SettingSelection.vue'
-import { wallpaperSkins } from '@/stores/wallpaper'
-import { WALLPAPER_SOURCES, forgetWallpaperDirectory, iconStyleList, isFolderPickerSupported, listImagesInDirectory, pickWallpaperDirectory, siteStyleList, themeList } from '@/utils'
+import { WALLPAPER_GRADIENTS, wallpaperSkins } from '@/stores/wallpaper'
+import { WALLPAPER_SOURCES, forgetWallpaperDirectory, isFolderPickerSupported, listImagesInDirectory, pickWallpaperDirectory } from '@/utils'
 
 const wallpaperStore = useWallpaperStore()
-const settingStore = useSettingStore()
 const fileInput = ref<HTMLInputElement>()
 const activeSource = ref<'local' | 'url' | 'gradient'>('local')
 const imageUrlInput = ref('')
@@ -13,6 +11,19 @@ const imageError = ref('')
 
 const settings = computed(() => wallpaperStore.settings)
 const folderSupported = isFolderPickerSupported()
+
+/**
+ * 皮肤按 group 分组展示（深色 / 浅色 / 品牌）。
+ * 分组顺序 = SKINS 里的键序，所以新增皮肤时把条目放到对应分组的末尾即可。
+ */
+const skinGroups = computed(() => {
+  const groups: Record<string, { key: string; label: string; background: string }[]> = {}
+  for (const [key, skin] of Object.entries(wallpaperSkins))
+    (groups[skin.group] ||= []).push({ key, label: skin.label, background: skin.background })
+  return groups
+})
+
+const skinCount = computed(() => Object.keys(wallpaperSkins).length)
 
 /**
  * n-drawer（naive-ui 2.34）自身没有 Esc 关闭逻辑 —— 源码里搜不到 Escape，
@@ -154,6 +165,12 @@ function applyGradient() {
   wallpaperStore.setGradient(value)
 }
 
+/** 点渐变预设 = 填进输入框 + 立即应用（输入框同步更新，用户可继续手改） */
+function useGradientPreset(value: string) {
+  gradientInput.value = value
+  applyGradient()
+}
+
 function randomAccent() {
   const colors = ['#0071e3', '#4f7ff0', '#25c89f', '#24c5d7', '#9e83ee', '#ff9138', '#ef6d6d', '#f6b91e', '#db72e8', '#df68ac', '#35c4b4', '#98dc36']
   wallpaperStore.update({ accent: colors[Math.floor(Math.random() * colors.length)] })
@@ -204,19 +221,26 @@ function resetLayout() {
         <section class="wallpaper-section">
           <div class="wallpaper-title">
             皮肤
+            <span class="panel-hint">{{ skinCount }} 套 · 纯 CSS，切换即时</span>
           </div>
-          <div class="skin-grid">
-            <button
-              v-for="(skin, key) in wallpaperSkins"
-              :key="key"
-              class="skin-card"
-              :class="{ active: settings.skin === key && settings.source === 'none' }"
-              type="button"
-              @click="wallpaperStore.setSkin(key)"
-            >
-              <span class="skin-preview" :style="{ background: skin.background }" />
-              <span>{{ skin.label }}</span>
-            </button>
+          <div v-for="(list, group) in skinGroups" :key="group" class="skin-group">
+            <div class="skin-group__title">
+              {{ group }}
+            </div>
+            <div class="skin-grid">
+              <button
+                v-for="skin in list"
+                :key="skin.key"
+                class="skin-card"
+                :class="{ active: settings.skin === skin.key && settings.source === 'none' }"
+                type="button"
+                :title="`使用「${skin.label}」皮肤`"
+                @click="wallpaperStore.setSkin(skin.key)"
+              >
+                <span class="skin-preview" :style="{ background: skin.background }" />
+                <span>{{ skin.label }}</span>
+              </button>
+            </div>
           </div>
         </section>
 
@@ -432,50 +456,25 @@ function resetLayout() {
               应用
             </button>
           </div>
+          <!-- 对比度明显的现成配色，点一下直接应用；也可以点完再改输入框里的色值 -->
+          <div v-if="activeSource === 'gradient'" class="gradient-presets">
+            <button
+              v-for="item in WALLPAPER_GRADIENTS"
+              :key="item.label"
+              type="button"
+              class="gradient-preset"
+              :class="{ active: settings.source === 'gradient' && settings.gradient === item.value }"
+              :title="item.value"
+              :aria-label="`使用「${item.label}」渐变`"
+              @click="useGradientPreset(item.value)"
+            >
+              <span class="gradient-preset__preview" :style="{ background: item.value }" />
+              <span>{{ item.label }}</span>
+            </button>
+          </div>
           <button type="button" class="clear-button" @click="wallpaperStore.removeWallpaper">
             清除壁纸
           </button>
-        </section>
-
-        <!--
-          偏好：主题风格 / 图标风格 / 色彩模式。
-          这三个之前放在「/setting」里的 2×2 下拉网格，2026-09-18 改造搬到此处。
-          搜索引擎依然走 MainSearch 顶部的引擎条 +「+」按钮，不再列在这里。
-          这些写入 settingStore（不是 wallpaperStore）—— 它们控制的是全局观感而非壁纸本身。
-        -->
-        <section class="wallpaper-section">
-          <div class="wallpaper-title">
-            偏好
-          </div>
-          <div class="preference-grid">
-            <SettingSelection
-              v-model="settingStore.settings.theme"
-              title="主题风格"
-              :options="themeList"
-              label-field="name"
-              value-field="enName"
-              :on-update-value="(theme: string) => toggleTheme(theme)"
-            />
-            <SettingSelection
-              v-model="settingStore.settings.iconStyle"
-              title="图标风格"
-              :options="iconStyleList"
-              label-field="name"
-              value-field="enName"
-              :on-update-value="(enName: string) => settingStore.setSettings({ iconStyle: enName })"
-            />
-            <SettingSelection
-              v-model="settingStore.settings.siteStyle"
-              title="色彩模式"
-              :options="siteStyleList"
-              label-field="name"
-              value-field="enName"
-              :on-update-value="(enName: string) => {
-                settingStore.setSettings({ siteStyle: enName })
-                toggleSiteSytle()
-              }"
-            />
-          </div>
         </section>
       </div>
 
@@ -501,18 +500,24 @@ function resetLayout() {
 }
 .wallpaper-section:last-child { border-bottom: 0; }
 .wallpaper-title { margin-bottom: 10px; font-size: 14px; font-weight: 700; }
-.skin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.skin-card, .glass-card, .advanced-tabs button, .recent-image, .source-card {
+.skin-group + .skin-group { margin-top: 12px; }
+.skin-group__title { margin-bottom: 6px; font-size: 12px; opacity: .62; }
+.skin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.skin-card, .glass-card, .advanced-tabs button, .recent-image, .source-card, .gradient-preset {
   border: 1px solid color-mix(in srgb, var(--text-c) 18%, transparent);
   background: color-mix(in srgb, var(--main-bg-c) 70%, transparent);
   color: inherit;
   cursor: pointer;
   transition: border-color .2s, transform .2s, box-shadow .2s;
 }
-.skin-card { display: grid; gap: 5px; padding: 5px; border-radius: 8px; font-size: 12px; }
-.skin-card:hover, .glass-card:hover, .source-card:hover { transform: translateY(-1px); }
-.skin-card.active, .glass-card.active, .advanced-tabs button.active, .source-card.active { border-color: var(--wallpaper-accent, var(--primary-c)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 22%, transparent); }
-.skin-preview { height: 36px; border-radius: 5px; }
+.skin-card, .gradient-preset { display: grid; gap: 4px; padding: 4px; border-radius: 8px; font-size: 12px; line-height: 1.25; }
+.skin-card:hover, .glass-card:hover, .source-card:hover, .gradient-preset:hover { transform: translateY(-1px); }
+.skin-card.active, .glass-card.active, .advanced-tabs button.active, .source-card.active, .gradient-preset.active { border-color: var(--wallpaper-accent, var(--primary-c)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 22%, transparent); }
+/* 皮肤有 30+ 套，预览条压到 30px 才不至于把面板拉太长 */
+.skin-preview { height: 30px; border-radius: 5px; }
+/* 渐变预设：3 列，点一下直接应用 */
+.gradient-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.gradient-preset__preview { height: 26px; border-radius: 5px; }
 .accent-controls, .wallpaper-actions, .advanced-input, .wallpaper-footer, .recent-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .accent-controls input[type='color'] { width: 36px; height: 28px; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .accent-controls code { opacity: .72; }
@@ -542,8 +547,6 @@ function resetLayout() {
 .sliders input[type='range'] { width: 100%; accent-color: var(--wallpaper-accent, var(--primary-c)); }
 .sliders b { text-align: right; font-weight: 400; opacity: .72; }
 .sliders .checkbox-label { display: flex; grid-template-columns: unset; justify-content: flex-start; }
-/* 偏好 section：三个下拉纵向堆叠，宽度跟面板一致 */
-.preference-grid { display: grid; gap: 14px; }
 .advanced-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
 .advanced-tabs button { padding: 5px 10px; border-radius: 6px; }
 /* 图标形状：三个等宽按钮 */

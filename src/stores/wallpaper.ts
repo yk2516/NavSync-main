@@ -8,19 +8,83 @@ const STORAGE_KEY_VIEWER = 'wallpaper_viewer'
 /** 图标基准尺寸：面板里 100% 对应 64px，与站点卡片原始尺寸一致 */
 export const ICON_BASE_SIZE = 64
 
-const SKINS: Record<string, { label: string; background: string }> = {
+/**
+ * 预设皮肤。
+ *
+ * `group` 只用于面板分组展示（深色 / 浅色 / 品牌），不影响渲染。
+ * `background` 直接写进 html 的 `--wallpaper-skin`（见 styles/public.scss 的壁纸层说明），
+ * 因此必须是**纯 CSS 值**：只有渐变和纯色，没有图片、没有网络请求 —— 这是皮肤能做到
+ * 「点一下下一帧就变」的原因（对比图片壁纸的「下载 + 解码」）。
+ *
+ * ⚠️ 皮肤的亮度会参与明暗自适应（见 apply() → syncTone），深色皮肤在浅色主题下
+ * 会自动把文字翻成浅色。新增皮肤后**必须真实渲染验证一次**：浅色主题 + 深色皮肤，
+ * 首页文字应可读。`default` 是唯一不设背景的皮肤（交给主题底色）。
+ */
+const SKINS: Record<string, { label: string; group: string; background: string }> = {
+  // ---------------- 深色 ----------------
   // default 不设背景：交给 html 的主题底色（--bg-c / 暗色 --dark-bg-c），
   // 否则暗色模式下会被这里的亮色写死，且不透明背景会盖住壁纸层。
-  default: { label: '默认', background: 'none' },
-  deepBlue: { label: '沉静蓝', background: 'linear-gradient(135deg, #111827 0%, #1e293b 100%)' },
-  polarGreen: { label: '极光青', background: 'linear-gradient(135deg, #0f2a2e 0%, #173b3b 100%)' },
-  starPurple: { label: '星云紫', background: 'linear-gradient(135deg, #211a34 0%, #3b285f 100%)' },
-  warmBrown: { label: '余烬棕', background: 'linear-gradient(135deg, #2c2019 0%, #4b2f1f 100%)' },
-  midnight: { label: '午夜黑', background: 'linear-gradient(135deg, #090b12 0%, #202333 100%)' },
-  ios: { label: 'iOS 屏半', background: 'linear-gradient(90deg, #f8fafc 0 50%, #17191f 50%)' },
-  clear: { label: '干净明亮', background: 'linear-gradient(135deg, #ffffff 0%, #e8eef7 100%)' },
-  material: { label: 'Material 粉', background: 'linear-gradient(135deg, #f8e9ee 0%, #ffffff 100%)' },
+  default: { label: '默认', group: '深色', background: 'none' },
+  midnight: { label: '午夜黑', group: '深色', background: 'linear-gradient(135deg, #090b12 0%, #202333 100%)' },
+  deepBlue: { label: '沉静蓝', group: '深色', background: 'linear-gradient(135deg, #111827 0%, #1e293b 100%)' },
+  graphite: { label: '石墨灰', group: '深色', background: 'linear-gradient(135deg, #1b1b1d 0%, #34343a 100%)' },
+  slate: { label: '石板', group: '深色', background: 'linear-gradient(135deg, #1e232b 0%, #39414d 100%)' },
+  navy: { label: '深海蓝', group: '深色', background: 'linear-gradient(135deg, #0a1930 0%, #16385f 100%)' },
+  polarGreen: { label: '极光青', group: '深色', background: 'linear-gradient(135deg, #0f2a2e 0%, #173b3b 100%)' },
+  forest: { label: '松林', group: '深色', background: 'linear-gradient(135deg, #0c1f16 0%, #1d4430 100%)' },
+  starPurple: { label: '星云紫', group: '深色', background: 'linear-gradient(135deg, #211a34 0%, #3b285f 100%)' },
+  wine: { label: '酒红', group: '深色', background: 'linear-gradient(135deg, #2a0d16 0%, #4d1526 100%)' },
+  warmBrown: { label: '余烬棕', group: '深色', background: 'linear-gradient(135deg, #2c2019 0%, #4b2f1f 100%)' },
+  coffee: { label: '咖啡', group: '深色', background: 'linear-gradient(135deg, #1f1712 0%, #3d2b1f 100%)' },
+
+  // ---------------- 浅色 ----------------
+  clear: { label: '干净明亮', group: '浅色', background: 'linear-gradient(135deg, #ffffff 0%, #e8eef7 100%)' },
+  ios: { label: 'iOS 屏半', group: '浅色', background: 'linear-gradient(90deg, #f8fafc 0 50%, #17191f 50%)' },
+  material: { label: 'Material 粉', group: '浅色', background: 'linear-gradient(135deg, #f8e9ee 0%, #ffffff 100%)' },
+  paper: { label: '纸白', group: '浅色', background: 'linear-gradient(135deg, #ffffff 0%, #f4f6f8 100%)' },
+  ivory: { label: '象牙白', group: '浅色', background: 'linear-gradient(135deg, #fffdf7 0%, #f5efe2 100%)' },
+  mint: { label: '薄荷', group: '浅色', background: 'linear-gradient(135deg, #f2fdf6 0%, #d8f3e3 100%)' },
+  sky: { label: '天青', group: '浅色', background: 'linear-gradient(135deg, #f4fbff 0%, #dcecfb 100%)' },
+  sand: { label: '暖沙', group: '浅色', background: 'linear-gradient(135deg, #fffaf0 0%, #f6e7cd 100%)' },
+
+  // ---------------- 品牌 ----------------
+  // 取自各家产品界面的公开主色调，命名只作配色来源的描述。
+  githubDark: { label: 'GitHub 暗夜', group: '品牌', background: 'linear-gradient(135deg, #0d1117 0%, #161b22 60%, #21262d 100%)' },
+  vscode: { label: 'VS Code 深蓝', group: '品牌', background: 'linear-gradient(135deg, #1e1e1e 0%, #252526 60%, #0e639c 100%)' },
+  discord: { label: 'Discord 靛蓝', group: '品牌', background: 'linear-gradient(135deg, #1a1c20 0%, #2c2f33 60%, #404eed 100%)' },
+  spotify: { label: 'Spotify 黑绿', group: '品牌', background: 'linear-gradient(135deg, #121212 0%, #0f2a1c 70%, #1db954 100%)' },
+  netflix: { label: 'Netflix 影院红', group: '品牌', background: 'linear-gradient(135deg, #141414 0%, #2b0a0a 70%, #e50914 100%)' },
+  vercel: { label: 'Vercel 黑白', group: '品牌', background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)' },
+  notion: { label: 'Notion 墨白', group: '品牌', background: 'linear-gradient(135deg, #191919 0%, #2f2f2f 100%)' },
+  slack: { label: 'Slack 茄紫', group: '品牌', background: 'linear-gradient(135deg, #1d1c1d 0%, #3f0e40 100%)' },
+  apple: { label: 'Apple 深空灰', group: '品牌', background: 'linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%)' },
+  tencent: { label: '腾讯深蓝', group: '品牌', background: 'linear-gradient(135deg, #0b1c3d 0%, #0f4c9e 100%)' },
+  bilibili: { label: '哔哩粉', group: '品牌', background: 'linear-gradient(135deg, #16162a 0%, #3d1b3d 70%, #fb7299 100%)' },
+  xiaomi: { label: '米橙', group: '品牌', background: 'linear-gradient(135deg, #1c1208 0%, #3a2408 70%, #ff6900 100%)' },
 }
+
+/**
+ * 渐变壁纸预设：**对比度明显**的配色，给「高级壁纸 → 渐变」当一键选项用。
+ *
+ * 与皮肤的区别是层次与定位：皮肤写在 html 底色上（最底层，低调基调），
+ * 渐变写在 body::after（图片之上，直接当壁纸用）。两边都用纯 CSS，零请求。
+ */
+export const WALLPAPER_GRADIENTS: { label: string; value: string }[] = [
+  { label: '落日熔金', value: 'linear-gradient(135deg, #ff6b35 0%, #f7c59f 40%, #6a0572 100%)' },
+  { label: '赛博霓虹', value: 'linear-gradient(135deg, #fc00ff 0%, #00dbde 100%)' },
+  { label: '冰火', value: 'linear-gradient(135deg, #ff0844 0%, #00c6ff 100%)' },
+  { label: '霓虹紫青', value: 'linear-gradient(135deg, #8a2be2 0%, #00e5ff 100%)' },
+  { label: '烈焰', value: 'linear-gradient(135deg, #f12711 0%, #f5af19 100%)' },
+  { label: '极光', value: 'linear-gradient(135deg, #00d2ff 0%, #3a47d5 100%)' },
+  { label: '糖果', value: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
+  { label: '青柠', value: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
+  { label: '黄昏', value: 'linear-gradient(135deg, #2c3e50 0%, #fd746c 100%)' },
+  { label: '深海', value: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)' },
+  { label: '葡萄', value: 'linear-gradient(135deg, #654ea3 0%, #eaafc8 100%)' },
+  { label: '矩阵绿', value: 'linear-gradient(135deg, #000000 0%, #0f9b0f 100%)' },
+  { label: '皇家蓝', value: 'linear-gradient(135deg, #141e30 0%, #243b55 100%)' },
+  { label: '蜜桃', value: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)' },
+]
 
 const DEFAULTS: WallpaperSettings = {
   skin: 'default',
@@ -217,20 +281,23 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
 
   /**
    * 按当前壁纸更新文字色调。
+   * 优先级：图片 > 渐变壁纸 > 皮肤 —— 三者按 z-index 从高到低，以最上面那层为准。
    * 用 key 去重，避免拖滑块时每次都重新解码整张图。
+   *
+   * 皮肤必须参与：深色皮肤配浅色主题时，文字若不翻白就是黑底黑字。
+   * （`default` 皮肤的背景是 `none`，传进来是空串，行为与从前一致。）
    */
-  function syncTone(image: string, gradient: string) {
+  function syncTone(image: string, gradient: string, skin: string) {
     const autoDim = settings.value.autoDim
-    const key = `${autoDim ? 'on' : 'off'}|${image ? `img:${image.length}:${image.slice(-48)}` : (gradient ? `g:${gradient}` : 'none')}`
+    const surface = image
+      ? `img:${image.length}:${image.slice(-48)}`
+      : (gradient ? `g:${gradient}` : (skin ? `s:${skin}` : 'none'))
+    const key = `${autoDim ? 'on' : 'off'}|${surface}`
     if (key === lastToneKey)
       return
     lastToneKey = key
 
-    if (!autoDim) {
-      setTone('theme')
-      return
-    }
-    if (!image && !gradient) {
+    if (!autoDim || surface === 'none') {
       setTone('theme')
       return
     }
@@ -246,7 +313,7 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
       return
     }
 
-    const lum = gradientLuminance(gradient)
+    const lum = gradientLuminance(gradient || skin)
     setTone(lum === undefined ? 'dark' : (lum < 0.42 ? 'dark' : 'light'))
   }
 
@@ -309,7 +376,12 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     root.dataset.wallpaperSource = current.source
     root.dataset.wallpaperAutoDim = current.autoDim ? 'true' : 'false'
     body.style.setProperty('--primary-c', current.accent || '')
-    syncTone(image, current.source === 'gradient' ? current.gradient : '')
+    // 皮肤也要参与明暗判定：它铺在 html 上，是「没有图片/渐变壁纸时」唯一的底色
+    syncTone(
+      image,
+      current.source === 'gradient' ? current.gradient : '',
+      skin.background === 'none' ? '' : skin.background,
+    )
   }
 
   function update(patch: Partial<WallpaperSettings>) {

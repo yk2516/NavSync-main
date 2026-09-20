@@ -10,7 +10,7 @@ import { prefetchOnIdle, useLazyMount } from '@/composables/lazyMount'
 /**
  * 首屏只静态导入「访客第一眼就会看到」的东西（头部、时钟、搜索框、导航、小风车）。
  * 下面两个都只有站长在 /setting 或主动点开时才会用到，静态导入会让访客替站长买单 ——
- * 它们连同 MainSetting 依赖的 SettingSelection / CloudSync / AdminGate / ResetModal
+ * 它们连同 MainSetting 依赖的 CloudSync / AdminGate / ResetModal
  * 一起，是首屏 48 个请求里的一大半。
  */
 const MainSetting = defineAsyncComponent(() => import('./components/MainSetting.vue'))

@@ -3,7 +3,7 @@ import type { Ref } from 'vue'
 /**
  * 「首屏不加载、用到才加载」的辅助
  *
- * 背景：首页曾经把 `/setting` 的整套 UI（SettingSelection / CloudSync / AdminGate …）、
+ * 背景：首页曾经把 `/setting` 的整套 UI（CloudSync / AdminGate / ResetModal …）、
  * 编辑态拖拽（SiteGroupList + vuedraggable，约 37KB）、壁纸面板、站点弹窗**全部静态导入**。
  * ES 静态导入的语义是「必须先全部下载并执行完，导入方才能开始执行」——
  * 于是首页首屏要等 48 个资源全部到位才能渲染，其中一大半是访客永远不会用到的。

@@ -13,9 +13,9 @@ const settingStore = useSettingStore()
 const renderStore = useRenderStore()
 const adminStore = useAdminStore()
 
-/* ThemeSetting 兜底渲染已移除：原「主题风格」下拉搬到壁纸面板，详见 WallpaperPanel.vue */
+/* ThemeSetting 兜底渲染已移除：原「主题风格」下拉已下线（详见下方模板注释） */
 
-/* render color 兜底渲染已移除：原 3 个下拉搬到壁纸面板，WallpaperPanel 用纯文本标签够用 */
+/* render color 兜底渲染已移除：原 3 个下拉已下线，WallpaperPanel 用纯文本标签够用 */
 
 /* import and export */
 interface CacheData {
@@ -115,8 +115,10 @@ function exitAdmin() {
     <!--
       原「主题风格 / 搜索引擎 / 图标风格 / 色彩模式」2×2 下拉网格已移除。
       搜索引擎改在 MainSearch 的「+」按钮 / 引擎条里换；
-      主题风格 / 图标风格 / 色彩模式搬到壁纸面板的「偏好」section 里了
-      （WallpaperPanel.vue）。这里只剩云端同步与数据管理。
+      主题风格 / 图标风格 / 色彩模式在 2026-09-20 按用户要求彻底下线
+      （壁纸面板的「偏好」section 与 SettingSelection.vue 一并删除），
+      当前值仍从 settings 读取并生效，只是不再提供修改入口。
+      这里只剩云端同步与数据管理。
     -->
     <!-- Cloud Sync Section -->
     <div mt-24>
