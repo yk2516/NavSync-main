@@ -77,8 +77,6 @@ function closeEngineBar() {
   engineBarVisible.value = false
 }
 
-const { iconStyle } = useIconStyle()
-
 function handleCloseClick() {
   keyword.value = ''
   searchInputRef.value?.focus()
@@ -340,7 +338,7 @@ watch(manageVisible, (visible) => {
           @click="toggleEngineBar"
         >
           <img
-            decoding="async" loading="lazy" referrerpolicy="no-referrer" :src="_getFavicon(engines[currentIndex] || engines[0])" :style="iconStyle"
+            decoding="async" loading="lazy" referrerpolicy="no-referrer" :src="_getFavicon(engines[currentIndex] || engines[0])"
             circle h-26 w-26 class="engine-current"
           >
         </button>
@@ -391,7 +389,7 @@ watch(manageVisible, (visible) => {
             @click="selectEngine(i)"
             @contextmenu="handleEngineContextMenu($event, engine.enName)"
           >
-            <img decoding="async" loading="lazy" referrerpolicy="no-referrer" :src="_getFavicon(engine)" :style="iconStyle" alt="">
+            <img decoding="async" loading="lazy" referrerpolicy="no-referrer" :src="_getFavicon(engine)" alt="">
           </button>
           <button type="button" class="engine-item engine-item--add" title="添加或管理搜索引擎" aria-label="添加或管理搜索引擎" @click="openAddEngine">
             <div i-carbon:add />

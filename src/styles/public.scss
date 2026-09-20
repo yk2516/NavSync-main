@@ -286,10 +286,14 @@ button,
  * 网格的列数/行数/间距全部由壁纸面板的「自定义布局」通过 CSS 变量下发。 */
 
 /* 「贴合图标的外框」的统一尺寸。浏览态的站点卡片外框与编辑态的「添加站点」按钮共用，
- * 两边都从图标大小推导 —— 想调松紧只改这里。 */
+ * 两边都从图标大小推导 —— 想调松紧只改这里。
+ *
+ * 外框圆角直接跟随图标圆角：图标圆 50% → 外框也圆；图标方 0% → 外框也方。
+ * 不再用「图标大小 × 0.3」之类的硬公式 —— 之前 50% 圆形图标配出的外框是 30% 圆角，
+ * 跟图标根本不像同一个东西。`var()` 的 fallback 是像素值，仅在变量尚未注入时兜底。 */
 :root {
   --site-card-box-pad: clamp(6px, calc(var(--wallpaper-icon-size, 64px) * 0.14), 14px);
-  --site-card-box-radius: clamp(12px, calc(var(--wallpaper-icon-size, 64px) * 0.3), 26px);
+  --site-card-box-radius: var(--wallpaper-icon-radius, 12px);
   --site-card-box-size: calc(var(--wallpaper-icon-size, 64px) + var(--site-card-box-pad) * 2);
 }
 
@@ -376,11 +380,15 @@ button,
 }
 
 /* ⚠️ 尺寸必须显式给，不能靠内容撑：加号没有 favicon / 名称行，
- * 否则外框会比站点外框小且偏上。 */
+ * 否则外框会比站点外框小且偏上。
+ *
+ * 透明度也跟着图标走：站长把「图标不透明度」调到 60% 时，加号虚线框、悬停底色
+ * 都要一起淡下去，否则加号会比旁边的站点卡片明显跳出来一份。 */
 .site-card--add .site-card__box {
   width: var(--site-card-box-size);
   height: var(--site-card-box-size);
   border: 1px dashed var(--setting-border-c);
+  opacity: var(--wallpaper-icon-opacity, 1);
 }
 
 .site-card--add:hover .site-card__box {

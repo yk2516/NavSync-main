@@ -10,7 +10,6 @@ const props = defineProps({
   },
 })
 
-const { iconStyle } = useIconStyle()
 const wallpaperStore = useWallpaperStore()
 
 const imgLoaded = ref(false)
@@ -63,14 +62,11 @@ const boxStyle = computed(() => {
   }
 })
 
-// 图片样式 = 图标风格（鲜艳/朴素/灰白）+ 加载淡入
+// 图片样式 = 加载淡入（图标风格已下线：朴素/鲜艳/灰白 等滤镜不再应用）
 const imgStyle = computed(() => {
-  const raw = iconStyle.value
-  const base: Record<string, any> = (raw && typeof raw === 'object') ? { ...(raw as Record<string, any>) } : {}
   if (!imgLoaded.value)
-    base.opacity = '0'
-  base.transition = 'opacity 0.3s'
-  return base
+    return { opacity: 0, transition: 'opacity 0.3s' }
+  return { transition: 'opacity 0.3s' }
 })
 </script>
 

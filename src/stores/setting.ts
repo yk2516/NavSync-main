@@ -1,4 +1,4 @@
-import { iconStyleList, readStore, removeStore, searchList, siteStyleList, themeList, writeStore } from '@/utils'
+import { readStore, removeStore, searchList, siteStyleList, themeList, writeStore } from '@/utils'
 import preset from '@/preset.json'
 import type { SettingItem, Settings } from '@/types'
 import { isAdminStored, loadViewerCache } from '@/utils/publicConfig'
@@ -34,7 +34,6 @@ export function loadSettings(): Partial<Settings> | undefined {
 export const settingData: { [K in SettingKey]: SettingItem<any>[] } = {
   theme: themeList,
   search: searchList,
-  iconStyle: iconStyleList,
   siteStyle: siteStyleList,
 }
 

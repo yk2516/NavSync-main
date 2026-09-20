@@ -1,7 +1,6 @@
 export interface Settings {
   theme: string
   search: string
-  iconStyle: string
   siteStyle: string
 }
 
@@ -30,12 +29,6 @@ export interface Search {
   url: string
   key: string
   favicon: string
-}
-
-export interface IconStyle {
-  name: string
-  enName: string
-  style: Partial<CSSStyleDeclaration>
 }
 
 export interface DarkMode {
