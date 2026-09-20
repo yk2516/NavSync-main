@@ -9,6 +9,13 @@ const STORAGE_KEY_VIEWER = 'wallpaper_viewer'
 export const ICON_BASE_SIZE = 64
 
 /**
+ * 设置写盘的合并窗口（ms）。
+ * 拖滑块会每帧触发一次改动，而 localStorage 是同步写、且设置里可能躺着 1~2MB 的 base64，
+ * 不合并的话拖动会直接卡住。窗口内的改动合并成一次写入，关页面前由 `beforeunload` 兜底落盘。
+ */
+const PERSIST_DEBOUNCE_MS = 300
+
+/**
  * 预设皮肤。
  *
  * `group` 只用于面板分组展示（深色 / 浅色 / 品牌），不影响渲染。
@@ -330,6 +337,28 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
       console.warn('[wallpaper] 壁纸保存失败，可能图片过大超出 localStorage 配额')
   }
 
+  // 拖滑块会以每帧一次的速度改动 settings，而 persist 是同步写 localStorage
+  // （设置里可能有 1~2MB 的 base64 图片），必须合并写入，否则拖动直接卡住。
+  let persistTimer: ReturnType<typeof setTimeout> | undefined
+
+  function schedulePersist() {
+    if (persistTimer)
+      clearTimeout(persistTimer)
+    persistTimer = setTimeout(() => {
+      persistTimer = undefined
+      persist()
+    }, PERSIST_DEBOUNCE_MS)
+  }
+
+  /** 把待写的设置立刻落盘（关页面前调用，避免防抖窗口内的改动丢失） */
+  function flushPersist() {
+    if (!persistTimer)
+      return
+    clearTimeout(persistTimer)
+    persistTimer = undefined
+    persist()
+  }
+
   function apply() {
     if (typeof document === 'undefined')
       return
@@ -384,10 +413,18 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     )
   }
 
+  /**
+   * 唯一的写入口：只改状态，持久化与渲染统一交给下面的 deep watch。
+   *
+   * 之前这里还各自调了一遍 `persist()` / `apply()`，而 deep watch 里也有一遍 ——
+   * 每次改动等于**写两遍 localStorage**。壁纸设置里可能躺着 1~2MB 的 base64 图片，
+   * 而 localStorage 是同步 API，这个开销直接落在主线程上（拖滑块时每帧一次，卡成幻灯片）。
+   *
+   * 面板里的滑块是 `v-model.number="settings.xxx"` 直接绑到 settings 上的、不走这里，
+   * 所以持久化**不能**只挂在这个函数上，必须留在 deep watch 里。
+   */
   function update(patch: Partial<WallpaperSettings>) {
     Object.assign(settings.value, patch)
-    persist()
-    apply()
   }
 
   function setSkin(skin: string) {
@@ -447,11 +484,67 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
 
   // ---------- 壁纸源网站 ----------
 
+  /**
+   * 「下一张」预加载 —— 让换壁纸从「等下载」变成「瞬时」。
+   *
+   * 为什么必须做：壁纸源的地址每次都带新的随机种子（`?random=` / `?t=Date.now()`），
+   * 所以每次换图都是一个**从未见过的 URL**，浏览器缓存必然失效 —— 用户点一下小风车，
+   * 要等完整的「DNS + 连接 + 下载 200KB + 解码」才能看到图（实测单张 1.5~3s）。
+   *
+   * 做法：把「生成下一张地址」和「下载下一张」都提到用户点击**之前**。
+   * 点击时直接切到那张已经躺在缓存里的图 → 瞬时；点完立刻再备新的下一张，滚动循环。
+   *
+   * ⚠️ **两种 CORS 模式都要预热**：CSS `background-image` 走 no-cors，而亮度采样
+   * （`imageLuminance`）走 `crossOrigin='anonymous'`。浏览器缓存按「URL + 请求模式」
+   * 分开存，只预热一种的话另一种仍要重新下载 —— 那就还是两次下载，只是提前了一次。
+   *
+   * 只在用户已经在用壁纸源（`source === 'source'`）时才预热：访客的默认设置是
+   * `source: 'none'`，不该白下载图片。
+   */
+  let nextSourceUrl = ''
+  let preloadRefs: HTMLImageElement[] = []
+
+  function preloadWallpaper(url: string) {
+    if (!url || typeof Image === 'undefined')
+      return
+    const plain = new Image()
+    plain.src = url
+    const cors = new Image()
+    cors.crossOrigin = 'anonymous'
+    cors.src = url
+    // 持住引用，避免加载尚未完成就被回收；只留最近几轮，不让它无限增长
+    preloadRefs.push(plain, cors)
+    while (preloadRefs.length > 8)
+      preloadRefs.shift()
+  }
+
+  /**
+   * 备好下一张壁纸。
+   * `source` 不是壁纸源时只清状态、不下载 —— 换了皮肤或本地图之后，
+   * 原来预热的那个地址已经用不上了。
+   * 已经备好就直接返回：避免同一个 tick 里被 watch 和调用点各备一张（那是两张不同的图）。
+   */
+  function prepareNextWallpaper() {
+    if (settings.value.source !== 'source') {
+      nextSourceUrl = ''
+      preloadRefs = []
+      return
+    }
+    if (nextSourceUrl)
+      return
+    nextSourceUrl = buildWallpaperUrl(settings.value.imageSource, settings.value.customSource)
+    preloadWallpaper(nextSourceUrl)
+  }
+
   function useSourceWallpaper() {
-    const url = buildWallpaperUrl(settings.value.imageSource, settings.value.customSource)
+    // 优先用已经预热好的那张（它已经在浏览器缓存里了）
+    const url = nextSourceUrl || buildWallpaperUrl(settings.value.imageSource, settings.value.customSource)
     if (!url)
       return false
+    nextSourceUrl = ''
     update({ source: 'source', imageUrl: url, image: '', gradient: '' })
+    // 点完立刻备下一张：等用户下次点小风车时，它已经就绪
+    prepareNextWallpaper()
     return true
   }
 
@@ -476,18 +569,47 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
   }
 
   watch(isAdmin, (value) => {
+    // 换身份要加载另一份设置。这次替换是程序行为、不是用户编辑，不该产生写盘；
+    // 而防抖窗口比 nextTick 长得多 —— 光靠 skipPersist 在 nextTick 里复位是拦不住的
+    // （复位时定时器还没到点，到点时 skipPersist 已经是 false 了），
+    // 所以这里先把待写清掉，并把 skipPersist 的复位推迟到窗口之后。
     skipPersist = true
+    if (persistTimer) {
+      clearTimeout(persistTimer)
+      persistTimer = undefined
+    }
     settings.value = loadSettings(value)
     nextTick(() => {
-      skipPersist = false
       apply()
+      setTimeout(() => {
+        skipPersist = false
+      }, PERSIST_DEBOUNCE_MS + 100)
     })
   })
 
   watch(settings, () => {
-    persist()
+    schedulePersist()
     apply()
   }, { deep: true })
+
+  // 关页面前把待写的设置落盘，否则防抖窗口内的改动会丢
+  if (typeof window !== 'undefined')
+    window.addEventListener('beforeunload', flushPersist)
+
+  // 换了壁纸源 / 自定义地址模板 → 之前预热的地址作废，重新备一张
+  watch(() => [settings.value.imageSource, settings.value.customSource], () => {
+    nextSourceUrl = ''
+    prepareNextWallpaper()
+  })
+
+  // 不再用壁纸源（换皮肤 / 本地图 / 清空）→ 丢掉预热的地址，别继续下载
+  watch(() => settings.value.source, (value) => {
+    if (value !== 'source')
+      prepareNextWallpaper()
+  })
+
+  // 刷新后如果上次用的就是壁纸源，提前把下一张备好（首次点击就不用等下载了）
+  prepareNextWallpaper()
 
   apply()
 
