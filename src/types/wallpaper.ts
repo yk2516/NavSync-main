@@ -30,6 +30,15 @@ export interface WallpaperSettings {
   iconOpacity: number
   /** 图标大小（%，100 表示 64px） */
   iconSize: number
+  /**
+   * 图标四周留白（%，相对图标盒子大小）。
+   *
+   * 为什么要它：图标源（0x3 / 站点 favicon.ico）主流只给 32×32，
+   * 而默认图标盒有 ~72px —— 图标铺满整盒时等于把 32px 的图放大 2 倍多，
+   * 再顶到圆角边上，观感「大而糊」。留一圈白让绘制区回落到接近原生尺寸，
+   * 同一张图立刻显得锐利、精致（参照 muiui 那类导航页的做法：45px 盒 + 8px 内缩）。
+   */
+  iconPadding: number
   /** 自定义布局：每页行数 */
   layoutRows: number
   /** 自定义布局：每页列数 */

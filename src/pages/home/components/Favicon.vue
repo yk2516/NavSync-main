@@ -53,13 +53,18 @@ function handleFaviconError(site: Site) {
 }
 
 // 图标底色与边距由站点自己携带（站长在编辑弹窗里设置，仿极光Tab）
+//
+// ⚠️ 内边距只在**站点显式设过**（> 0）时才写 inline style。
+// 旧写法是 `padding: ${n}px` 无条件写死（默认 0），inline 优先级高于样式表，
+// 会把全局的 `--wallpaper-icon-padding` 彻底盖掉 —— 壁纸面板里的「图标内边距」
+// 拖了没反应。留白交给全局变量、站点想单独加再写 inline，两边都不丢。
 const boxStyle = computed(() => {
   const bg = props.site.bgColor?.trim()
   const padding = Number(props.site.iconPadding ?? 0)
-  return {
-    backgroundColor: bg || 'transparent',
-    padding: `${Number.isFinite(padding) ? Math.max(0, Math.min(24, padding)) : 0}px`,
-  }
+  const style: Record<string, string> = { backgroundColor: bg || 'transparent' }
+  if (Number.isFinite(padding) && padding > 0)
+    style.padding = `${Math.min(24, padding)}px`
+  return style
 })
 
 // 图片样式 = 加载淡入（图标风格已下线：朴素/鲜艳/灰白 等滤镜不再应用）
@@ -101,8 +106,20 @@ const imgStyle = computed(() => {
   flex: 0 0 auto;
   overflow: hidden;
   border-radius: var(--wallpaper-icon-radius, 12px);
+  /* 四周留白：`--wallpaper-icon-padding` 由 store 按「图标盒 × 百分比」换算成 px 注入。
+   * `border-box`（全局 reset）下它不改变盒子尺寸，只把图片绘制区内缩 ——
+   * 于是同一张 32px 的源图不再被拉伸铺满，观感立刻锐利一档。
+   * fallback 给 0：变量尚未注入时（首帧、旧缓存）退回原来的铺满行为，不跳变。 */
+  padding: var(--wallpaper-icon-padding, 0px);
+  /* ⚠️ 底色必须只画在内容区，padding 那一圈保持透明。
+   *
+   * 站点底色（`site.bgColor`，站长手设、或图标加载失败时随机兜底的那个深色）
+   * 是画在这个盒子上的。一旦有了留白，底色就会从图片四周**露出一整圈「色环」**——
+   * 所有曾经加载失败过一次的站点都会被随机深色染上一圈，比不留白还难看。
+   * `content-box` 让背景随图片一起内缩，圆角也按内容区收缩，两者严丝合缝。 */
+  background-clip: content-box;
   opacity: var(--wallpaper-icon-opacity, 1);
-  transition: width .2s ease, height .2s ease, border-radius .2s ease, opacity .2s ease, background-color .2s ease;
+  transition: width .2s ease, height .2s ease, border-radius .2s ease, opacity .2s ease, background-color .2s ease, padding .2s ease;
 }
 
 .favicon-skeleton,

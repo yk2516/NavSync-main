@@ -158,6 +158,10 @@ const DEFAULTS: WallpaperSettings = {
   iconRadius: 50,
   iconOpacity: 100,
   iconSize: 112,
+  // 图标四周留一圈白（12%）：图标源主流只给 32×32，铺满 ~72px 的盒子等于把图放大
+  // 两倍多再顶到圆角边上，观感「大而糊」。留白让绘制区回落到接近原生尺寸，
+  // 同一张图立刻显得锐利 —— 参照 muiui 那类导航页（45px 盒 + 8px 内缩）。
+  iconPadding: 12,
   // 自定义布局默认值：2 行 × 5 列，间距各 30%（相对图标大小）
   layoutRows: 2,
   layoutCols: 5,
@@ -250,6 +254,8 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
       iconOpacity: clamp(parsed.iconOpacity, 10, 100, DEFAULTS.iconOpacity),
       iconSize: clamp(legacyIconLook ? DEFAULTS.iconSize : parsed.iconSize,
         40, 140, DEFAULTS.iconSize),
+      // 后加的字段，旧数据里没有 → clamp 会走 fallback（= 新的默认留白）。
+      iconPadding: clamp(parsed.iconPadding, 0, 30, DEFAULTS.iconPadding),
       // 布局字段是后加的，旧数据里没有；即便有也可能是脏值，统一在这里夹到合法区间，
       // 否则 0 列 / NaN 会让网格塌成一条线，而面板滑块也会显示成怪值。
       layoutRows: clamp(parsed.layoutRows, 1, 6, DEFAULTS.layoutRows),
@@ -480,7 +486,11 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     // 图标外观（站点卡片）
     root.style.setProperty('--wallpaper-icon-radius', `${clamp(current.iconRadius, 0, 50, DEFAULTS.iconRadius)}%`)
     root.style.setProperty('--wallpaper-icon-opacity', String(clamp(current.iconOpacity, 10, 100, 100) / 100))
-    root.style.setProperty('--wallpaper-icon-size', `${(ICON_BASE_SIZE * clamp(current.iconSize, 40, 140, DEFAULTS.iconSize) / 100).toFixed(1)}px`)
+    const iconPx = ICON_BASE_SIZE * clamp(current.iconSize, 40, 140, DEFAULTS.iconSize) / 100
+    root.style.setProperty('--wallpaper-icon-size', `${iconPx.toFixed(1)}px`)
+    // 留白按「图标盒 × 百分比」换算成像素：图标调大时留白跟着放大，比例不变。
+    root.style.setProperty('--wallpaper-icon-padding',
+      `${(iconPx * clamp(current.iconPadding, 0, 30, DEFAULTS.iconPadding) / 100).toFixed(1)}px`)
     root.style.setProperty('--wallpaper-search-width', `${clamp(current.searchWidth, 260, 900, DEFAULTS.searchWidth)}px`)
     root.style.setProperty('--wallpaper-search-radius', `${clamp(current.searchRadius, 0, 28, DEFAULTS.searchRadius)}px`)
     // 自定义布局：行数/列数/间距。间距用「图标大小 × 百分比」换算，
