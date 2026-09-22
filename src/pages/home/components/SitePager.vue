@@ -306,7 +306,7 @@ onBeforeUnmount(() => {
                 :title="`添加网站到「${page.name}」`" :aria-label="`添加网站到「${page.name}」`"
                 @click="onAddSite(page.groupIndex)"
               >
-                <span class="site-card__box"><span i-carbon:add text-26 op-55 /></span>
+                <span class="site-card__box"><span class="site-card__add-glyph" i-carbon:add /></span>
               </button>
             </div>
           </div>

@@ -290,11 +290,29 @@ button,
  *
  * 外框圆角直接跟随图标圆角：图标圆 50% → 外框也圆；图标方 0% → 外框也方。
  * 不再用「图标大小 × 0.3」之类的硬公式 —— 之前 50% 圆形图标配出的外框是 30% 圆角，
- * 跟图标根本不像同一个东西。`var()` 的 fallback 是像素值，仅在变量尚未注入时兜底。 */
+ * 跟图标根本不像同一个东西。`var()` 的 fallback 是像素值，仅在变量尚未注入时兜底。
+ *
+ * ⚠️ `--site-card-box-pad-net` 是给「图标自己已经留了一圈白」准备的：
+ * `--wallpaper-icon-padding` 让图标盒**内部**又缩了一圈（默认 12% ≈ 8.6px），
+ * 而 `.favicon-box` 的 border-box 尺寸没变 —— 外框若还按原来的 10px 内边距画，
+ * 它到「图标看得见的边缘」就变成 18.6px 了。悬停底色会比旁边的图标明显大一圈。
+ *
+ * `max(2px, …)` 保证下限：用户把留白调到 30% 时差值为负，外框不能塌到比图标还小，
+ * 虚线也得留得住。留白为 0 时算出来正好是原来的 10px —— 旧行为不受影响。
+ *
+ * ⚠️ 这个变量只管**悬停底色**（`.site-card__box`）。浏览态「＋」那圈**常驻虚线环**
+ * 另有尺寸规则 —— 它要贴的是图标看得见的边缘本身，不含这 10px，见下方 `::after`。 */
 :root {
   --site-card-box-pad: clamp(6px, calc(var(--wallpaper-icon-size, 64px) * 0.14), 14px);
+  --site-card-box-pad-net: max(2px, calc(var(--site-card-box-pad) - var(--wallpaper-icon-padding, 0px)));
   --site-card-box-radius: var(--wallpaper-icon-radius, 12px);
-  --site-card-box-size: calc(var(--wallpaper-icon-size, 64px) + var(--site-card-box-pad) * 2);
+  --site-card-box-size: calc(var(--wallpaper-icon-size, 64px) + var(--site-card-box-pad-net) * 2);
+  /* 图标**看得见**的绘制区 = 图标盒减掉它自己的留白（`--wallpaper-icon-padding`）。
+   *
+   * 浏览态的站点卡片没有可见外框 —— `.favicon-box` 的 border-box（`--wallpaper-icon-size`）
+   * 是透明的，用户眼里的「图标」就只有这么大。所以「＋」的常驻虚线环必须对齐到**这里**，
+   * 而不是对齐到看不见的 `--site-card-box-size`，否则它会比旁边每个图标都大出一整圈。 */
+  --wallpaper-icon-draw-size: calc(var(--wallpaper-icon-size, 64px) - var(--wallpaper-icon-padding, 0px) * 2);
 }
 
 .site-grid {
@@ -342,6 +360,9 @@ button,
 
 /* 贴合图标的外框。尺寸随图标缩放：默认 72px 图标 → 内边距 10px、外框 92×92、圆角 21px
  *
+ * 内边距用 `-net`（已扣掉图标自己的留白，见 `:root` 里的说明）—— 外框要贴的是
+ * **图标看得见的边缘**，不是图标盒的 border-box。用错了会让「＋」比旁边图标大一圈。
+ *
  * `max-width` 是窄屏兜底：图标最大可设 140%（89.6px），而 390px 屏收敛到 3 列后
  * 单元格只有 ~101px —— 外框（114.7px）会越过格线、和邻格外框叠在一起。
  * 夹到 100% 后外框最多与单元格同宽，极端参数下只是「图标比外框略宽」，不会互相压。 */
@@ -349,7 +370,7 @@ button,
   display: grid;
   place-items: center;
   max-width: 100%;
-  padding: var(--site-card-box-pad);
+  padding: var(--site-card-box-pad-net);
   border-radius: var(--site-card-box-radius);
   transition: background-color .18s ease, transform .18s ease;
 }
@@ -382,13 +403,48 @@ button,
 /* ⚠️ 尺寸必须显式给，不能靠内容撑：加号没有 favicon / 名称行，
  * 否则外框会比站点外框小且偏上。
  *
- * 透明度也跟着图标走：站长把「图标不透明度」调到 60% 时，加号虚线框、悬停底色
+ * 透明度也跟着图标走：站长把「图标不透明度」调到 60% 时，加号虚线环、悬停底色
  * 都要一起淡下去，否则加号会比旁边的站点卡片明显跳出来一份。 */
 .site-card--add .site-card__box {
+  position: relative;
   width: var(--site-card-box-size);
   height: var(--site-card-box-size);
-  border: 1px dashed var(--setting-border-c);
   opacity: var(--wallpaper-icon-opacity, 1);
+}
+
+/* 「＋」字形跟着虚线环一起缩放。
+ * 原来是写死的 `text-26`（26px 字号配 75.7px 的环）；环缩到图标大小后字号不跟着缩，
+ * 加号就会顶满整个环。比例沿用原来的 26 / 75.7 ≈ 34%。 */
+.site-card--add .site-card__add-glyph {
+  font-size: calc(var(--wallpaper-icon-draw-size) * .34);
+  line-height: 1;
+  opacity: .55;
+}
+
+/* 常驻虚线环 —— 画在伪元素上，尺寸取「图标**看得见**的大小」。
+ *
+ * 用户反馈「加号外框需要和图标外框一样大小」。浏览态的站点图标没有可见外框，
+ * 视觉边界就是图标自己（= `--wallpaper-icon-draw-size`）；虚线环若按 `__box`
+ * 的尺寸（图标盒 + 内边距）画，就比旁边图标大出一整圈，看着根本没对齐。
+ *
+ * 环内缩、`__box` 的尺寸不动 —— 悬停底色仍与站点卡片同尺寸：
+ * 站点是「大底色 + 小图标」，加号是「大底色 + 小虚线环」，两者同构。
+ * 环的圆角仍跟随图标圆角（`--site-card-box-radius` 就是 `--wallpaper-icon-radius`）。 */
+.site-card--add .site-card__box::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--wallpaper-icon-draw-size);
+  height: var(--wallpaper-icon-draw-size);
+  transform: translate(-50%, -50%);
+  border: 1px dashed var(--setting-border-c);
+  border-radius: var(--site-card-box-radius);
+  pointer-events: none;
+  /* ⚠️ 必须和 `.favicon-box` 的尺寸过渡**同长**（那边是 `.2s ease`）。
+   * 伪元素默认不继承父级过渡，漏了这条的话拖「图标大小」滑块时图标是缓动的、
+   * 虚线环却瞬间跳到终值 —— 两者肉眼可见地不同步。 */
+  transition: width .2s ease, height .2s ease;
 }
 
 .site-card--add:hover .site-card__box {
@@ -396,12 +452,12 @@ button,
   transform: translateY(-2px);
 }
 
-/* 纯图标按钮必须能被键盘找到并看见焦点（a11y），焦点环画在外框上 */
+/* 纯图标按钮必须能被键盘找到并看见焦点（a11y），焦点环画在虚线环上 */
 .site-card--add:focus-visible {
   outline: none;
 }
 
-.site-card--add:focus-visible .site-card__box {
+.site-card--add:focus-visible .site-card__box::after {
   outline: 2px solid var(--wallpaper-accent, var(--primary-c));
   outline-offset: 2px;
 }
