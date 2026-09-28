@@ -725,24 +725,31 @@ button,
 
 .compact-grid {
   display: grid;
-  /* 列数随屏宽自适应：桌面（容器内容宽 ~932px）6 列，1024 下 4 列，手机 390 下 2 列，
-   * 都不需要额外写断点。下限 146px 要刚好容得下「图标 + 内边距 + 6~8 个汉字」，
-   * 再宽会掉到 5 列（比参考设计稀），再窄长一点的站名就开始频繁截断了。 */
-  grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
-  gap: 4px;
+  /* 列数随屏宽自适应：桌面（容器内容宽 ~932px）8 列，1024 下 6 列，手机 390 下 3 列，
+   * 都不需要额外写断点。下限 104px 是照着「纵排卡片」定的 ——
+   * 图标在上、名称在下，一格只要容得下「图标 + 5~7 个汉字」即可，
+   * 比原来横排条目的 146px 窄得多（横排还要额外留出文字那一大段横向空间）。 */
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 6px 8px;
 }
 
-/* 横排条目：小图标在左、名称（可带一行描述）在右。
- * 底色的悬停反馈落在**整块条目**上（不像网格视图那样只晕在图标周围），
- * 因为条目本身已经很窄，图标周围那点内边距根本画不出可见的反馈。 */
+/* 纵排条目：图标在上、名称（可带一行描述）在下 —— 与参考设计一致。
+ *
+ * 2026-09-28 之前这里是横排（左图标 + 右文字）。改纵排的原因：横排条目高度只有一行，
+ * 图标被压得很小（23px），视觉重心全落在文字上；纵排把图标放大成主视觉，
+ * 扫视时靠图标认站比靠文字快得多。
+ *
+ * 底色的悬停反馈仍落在**整块条目**上（不像网格视图那样只晕在图标周围）：
+ * 条目虽然变窄了，但纵排后它有了明显的高度，整块底色反而更像个「格子」。 */
 .site-card--compact {
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  padding: 6px 8px;
-  border-radius: 8px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  text-align: center;
   transition: background-color .16s ease;
 }
 
@@ -766,19 +773,25 @@ button,
   padding: 0;
 }
 
+/* 文字块在图标下方居中：`width: 100%` 是必需的 —— 不撑满的话
+ * `justify-items: center` 只能让文字块自己居中，长名称照样顶破格子。 */
 .site-card__text {
   display: grid;
+  justify-items: center;
   gap: 1px;
+  width: 100%;
   min-width: 0;
 }
 
 .site-card--compact .site-card__name {
-  text-align: left;
-  font-size: 13px;
+  max-width: 100%;
+  text-align: center;
+  font-size: 12px;
   opacity: .92;
 }
 
 .site-card__desc {
+  max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -787,11 +800,12 @@ button,
   opacity: .5;
 }
 
-/* 紧凑列表里的「＋」：沿用虚线环那套构造（尺寸已随小图标收缩），
- * 只是不再靠左对齐 —— 它没有文字，居中才像个格子。
+/* 紧凑列表里的「＋」：沿用虚线环那套构造（尺寸已随小图标收缩）。
+ * ⚠️ 必须保持 `flex-start`（纵向 = 顶部对齐）：它和站点卡片同处一个纵排网格，
+ * 站点卡片的图标在顶部，加号若垂直居中就会比旁边每个图标低半格，看着像没对齐。
  * 环本身由 `.site-card--add .site-card__box::after` 画，这里只调字形大小。 */
 .site-card--compact.site-card--add {
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .site-card--compact.site-card--add .site-card__add-glyph {

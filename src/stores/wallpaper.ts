@@ -8,11 +8,14 @@ const STORAGE_KEY_VIEWER = 'wallpaper_viewer'
 export const ICON_BASE_SIZE = 64
 
 /**
- * 紧凑列表的小图标 = 全局图标大小 × 这个比例（下限见 COMPACT_ICON_MIN）。
- * 0.32 是照着参考设计定的：默认 112% → 71.7px × 0.32 ≈ 22.9px，
- * 和主流导航页里「小图标 + 横排文字」那一档的观感一致。
+ * 紧凑列表的图标 = 全局图标大小 × 这个比例（下限见 COMPACT_ICON_MIN）。
+ *
+ * 2026-09-28 由 0.32 提到 0.6：紧凑列表从「小图标 + 横排文字」改成「图标在上、
+ * 名称在下」的纵排网格后，图标成了条目的主视觉 —— 22.9px 的小图标在纵排里
+ * 又空又糊，跟参考设计对不上。默认 112% → 71.7px × 0.6 ≈ 43px，
+ * 在 104px 宽的格子里约占三成，与参考设计的比例一致。
  */
-export const COMPACT_ICON_RATIO = 0.32
+export const COMPACT_ICON_RATIO = 0.6
 /** 紧凑列表图标的下限（px）：再小就认不出是什么站了 */
 export const COMPACT_ICON_MIN = 16
 
@@ -171,7 +174,7 @@ const DEFAULTS: WallpaperSettings = {
   // 两倍多再顶到圆角边上，观感「大而糊」。留白让绘制区回落到接近原生尺寸，
   // 同一张图立刻显得锐利 —— 参照 muiui 那类导航页（45px 盒 + 8px 内缩）。
   iconPadding: 12,
-  // 浏览态默认走「紧凑列表」：分组纵向铺开、图标缩小、名称横排 —— 一屏能看到几十个站点，
+  // 浏览态默认走「紧凑列表」：分组纵向铺开、图标在上名称在下 —— 一屏能看到几十个站点，
   // 比「一页十个大图标 + 翻页」更接近主流导航页的用法。想回到图标网格在面板里切一下即可。
   siteLayout: 'compact',
   // 自定义布局默认值：2 行 × 5 列，间距各 30%（相对图标大小）
@@ -509,7 +512,7 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     // 留白按「图标盒 × 百分比」换算成像素：图标调大时留白跟着放大，比例不变。
     const paddingPct = clamp(current.iconPadding, 0, 30, DEFAULTS.iconPadding)
     root.style.setProperty('--wallpaper-icon-padding', `${(iconPx * paddingPct / 100).toFixed(1)}px`)
-    // 紧凑列表的小图标：由「图标大小」按比例缩小（默认 112% → 71.7px → 22.9px），
+    // 紧凑列表的图标：由「图标大小」按比例缩小（默认 112% → 71.7px → 43px），
     // 而不是写死一个像素值 —— 站长拖「图标大小」时两种视图一起变大变小，控件不会变成死的。
     // 下限 16px：再小图标就糊成一团，看不清是什么站。
     const compactIconPx = Math.max(COMPACT_ICON_MIN, iconPx * COMPACT_ICON_RATIO)

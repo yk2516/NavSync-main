@@ -345,7 +345,7 @@ function resetLayout() {
               </button>
             </div>
             <div v-if="!isGridLayout" class="layout-style-hint">
-              紧凑列表：分组纵向铺开、图标缩小、名称横排，一屏能看到更多站点；列数随屏宽自适应。
+              紧凑列表：分组纵向铺开、图标在上名称在下，一屏能看到更多站点；列数随屏宽自适应。
             </div>
             <template v-else>
               <div class="sliders">

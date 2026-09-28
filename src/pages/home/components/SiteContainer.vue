@@ -7,7 +7,7 @@ import { prefetchOnIdle, useLazyMount } from '@/composables/lazyMount'
 /**
  * 三套导航视图，按模式选一：
  *   编辑态（站长在 /setting）→ SiteGroupList：分组全部平铺、标题置顶，可跨分组拖拽
- *   浏览态 · 紧凑列表（默认） → SiteCompact：**所有分类**纵向铺开，小图标 + 横排名称
+ *   浏览态 · 紧凑列表（默认） → SiteCompact：**所有分类**纵向铺开，图标在上、名称在下
  *   浏览态 · 图标网格        → SitePager：一个分组一页，滚轮 / 圆点 / 方向键翻页
  *
  * 浏览态用哪套由 `wallpaperStore.settings.siteLayout` 决定（壁纸面板「站点排版」里切）。

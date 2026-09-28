@@ -22,7 +22,7 @@ import type { Site } from '@/types'
  *
  * 与 `SitePager.vue` 的关系：**数据一样，摆法不同**。
  *   SitePager     一个分组一页，5×2 大图标，滚轮 / 圆点翻页（分类仍靠顶部标签切）
- *   SiteCompact   所有分类纵向铺开成一页长滚动，小图标 + 横排名称
+ *   SiteCompact   所有分类纵向铺开成一页长滚动，图标在上、名称在下
  *
  * 为什么单独一个组件而不是给 SitePager 加分支：两者的翻页模型是互斥的 ——
  * 分页视图靠 `.pager__track` 的 `translate3d` 切页，长滚动视图根本没有「页」这个概念，
