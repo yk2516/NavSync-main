@@ -14,6 +14,12 @@ import type { Site } from '@/types'
  * 分页视图靠 `.pager__track` 的 `translate3d` 切页，长滚动视图根本没有「页」这个概念，
  * 塞进同一个组件只会让两边的状态互相污染（页码、inert、滚轮劫持都要各自判断）。
  *
+ * ⚠️ **这里没有二级导航**（`.group-nav`）。曾经有过一条居中的分组胶囊行，
+ * 2026-09-28 按用户要求去掉：分组名直接作为**列表卡片内的左上角标题**出现
+ * （`.compact-panel` > `.compact-section__head`），导航条与标题是同一份信息，
+ * 一页能看到全部内容时那排胶囊纯属重复。
+ * 分页视图（SitePager）仍然保留 `.group-nav` —— 那里是「跳到第 N 页」，不是重复信息。
+ *
  * 注意与编辑态的边界：编辑态仍然走 `SiteGroupList.vue`（可跨分组拖拽），这里只管浏览。
  */
 
@@ -63,90 +69,6 @@ function sectionId(groupIndex: number) {
   return `compact-group-${groupIndex}`
 }
 
-function prefersReducedMotion() {
-  return typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
-/**
- * 当前高亮的分组 = 「最后一个已经滚过顶部阈值的分组」。
- *
- * 用 scroll + rAF 而不是 IntersectionObserver：这里的语义是「当前读到哪一段」，
- * 需要一个全局唯一的答案，而 IO 的回调是「哪个元素进出视口」的离散事件，
- * 还要自己维护进入/离开的集合，反而更绕。
- *
- * ⚠️ 这几个状态必须声明在 `jumpTo` **之前**：`jumpTo` 会读写它们，
- * 写在后面能跑（函数调用发生在初始化之后）但 ESLint 的 no-use-before-define 会报错。
- */
-const activeIndex = ref(0)
-const ACTIVE_OFFSET = 140
-/** 二级导航跳转后的高亮锁定窗口（ms），要盖过平滑滚动的时长 */
-const JUMP_LOCK_MS = 900
-let jumpLockUntil = 0
-let rafId = 0
-
-/**
- * 二级导航：点一下滚到对应分组。
- *
- * 用 `scrollIntoView` 而不是 `window.scrollTo` + 元素 offsetTop：
- * 后者要自己算容器偏移，页面结构一改就错位。分组的 `scroll-margin-top`
- * 在样式里给（见 public.scss 的 `.compact-section`）。
- */
-function jumpTo(groupIndex: number) {
-  const el = document.getElementById(sectionId(groupIndex))
-  const target = groups.value.findIndex(group => group.index === groupIndex)
-  if (!el || target < 0)
-    return
-
-  el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
-  activeIndex.value = target
-  // 跳转后短暂锁住「滚动驱动的高亮」。
-  // 目标段落可能因为「下面已经没有内容了」而到不了视口顶部（页面到底了，滚不动），
-  // 那时滚动驱动算出来的高亮会落在别的分组上 —— 用户点了 A 却看到 B 亮着。
-  // 锁过期后正常同步，用户自己再滚一下高亮立刻回到正确的位置。
-  jumpLockUntil = Date.now() + JUMP_LOCK_MS
-}
-
-function syncActive() {
-  rafId = 0
-  if (Date.now() < jumpLockUntil)
-    return
-
-  // 滚到底时把最后一段点亮：最后那一段可能永远到不了顶部阈值
-  // （页面下方没有足够内容），不特判的话它永远不会成为「当前」。
-  const atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4
-  if (atBottom) {
-    activeIndex.value = Math.max(0, groups.value.length - 1)
-    return
-  }
-
-  let next = 0
-  groups.value.forEach((group, i) => {
-    const el = document.getElementById(sectionId(group.index))
-    if (el && el.getBoundingClientRect().top <= ACTIVE_OFFSET)
-      next = i
-  })
-  activeIndex.value = next
-}
-
-function onScroll() {
-  if (!rafId)
-    rafId = requestAnimationFrame(syncActive)
-}
-
-// 无条件注册、回调里自己判断（硬约定 29：懒挂载/条件注册的副作用会静默失效）
-onMounted(() => {
-  window.addEventListener('scroll', onScroll, { passive: true })
-  syncActive()
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('scroll', onScroll)
-  if (rafId)
-    cancelAnimationFrame(rafId)
-})
-
 /** 非法链接不导航，但要给出提示 —— 条目点不动又没有任何反馈，用户只会以为网站挂了 */
 function onSiteClick(e: MouseEvent, site: CompactSite) {
   if (!site.safeUrl) {
@@ -172,54 +94,43 @@ function onSiteContextMenu(e: MouseEvent, groupIndex: number, siteIndex: number)
     </div>
 
     <template v-else>
-      <!-- 二级导航：当前分类的全部分组，点一下滚到对应段落。多于一个分组才出现 -->
-      <div v-if="groups.length > 1" class="group-nav">
-        <button
-          v-for="(group, i) in groups" :key="group.id" type="button" class="group-nav__item"
-          :class="{ 'group-nav__item--active': i === activeIndex }"
-          :aria-current="i === activeIndex ? 'true' : undefined"
-          :title="group.name"
-          @click="jumpTo(group.index)"
-        >
-          {{ group.name }}
-        </button>
-      </div>
-
       <section
         v-for="group in groups" :id="sectionId(group.index)" :key="group.id"
         class="compact-section" :aria-label="group.name"
       >
-        <div class="compact-section__head">
-          <h2 class="compact-section__title">
-            {{ group.name }}
-          </h2>
-          <span class="compact-section__count">{{ group.sites.length }} 个</span>
-        </div>
+        <div class="compact-panel">
+          <div class="compact-section__head">
+            <h2 class="compact-section__title">
+              {{ group.name }}
+            </h2>
+            <span class="compact-section__count">{{ group.sites.length }} 个</span>
+          </div>
 
-        <div class="compact-grid">
-          <a
-            v-for="site in group.sites" :key="site.id ?? site.siteIndex"
-            class="site-card site-card--compact" :class="{ 'site-card--invalid': !site.safeUrl }"
-            :href="site.safeUrl || undefined" target="_blank"
-            :title="site.safeUrl ? site.name : `${site.name}（链接无效，请在设置里改成 http/https 地址）`"
-            @click="onSiteClick($event, site)"
-            @contextmenu="onSiteContextMenu($event, group.index, site.siteIndex)"
-          >
-            <span class="site-card__box"><Favicon :site="site" /></span>
-            <span class="site-card__text">
-              <span class="site-card__name">{{ site.name }}</span>
-              <span v-if="site.desc" class="site-card__desc">{{ site.desc }}</span>
-            </span>
-          </a>
+          <div class="compact-grid">
+            <a
+              v-for="site in group.sites" :key="site.id ?? site.siteIndex"
+              class="site-card site-card--compact" :class="{ 'site-card--invalid': !site.safeUrl }"
+              :href="site.safeUrl || undefined" target="_blank"
+              :title="site.safeUrl ? site.name : `${site.name}（链接无效，请在设置里改成 http/https 地址）`"
+              @click="onSiteClick($event, site)"
+              @contextmenu="onSiteContextMenu($event, group.index, site.siteIndex)"
+            >
+              <span class="site-card__box"><Favicon :site="site" /></span>
+              <span class="site-card__text">
+                <span class="site-card__name">{{ site.name }}</span>
+                <span v-if="site.desc" class="site-card__desc">{{ site.desc }}</span>
+              </span>
+            </a>
 
-          <!-- 分组末尾的「＋」：访客与站长都能加网站（访客的站点只进本地覆盖层） -->
-          <button
-            type="button" class="site-card site-card--compact site-card--add"
-            :title="`添加网站到「${group.name}」`" :aria-label="`添加网站到「${group.name}」`"
-            @click="modalStore.showModal('add', 'site', group.index)"
-          >
-            <span class="site-card__box"><span class="site-card__add-glyph" i-carbon:add /></span>
-          </button>
+            <!-- 分组末尾的「＋」：访客与站长都能加网站（访客的站点只进本地覆盖层） -->
+            <button
+              type="button" class="site-card site-card--compact site-card--add"
+              :title="`添加网站到「${group.name}」`" :aria-label="`添加网站到「${group.name}」`"
+              @click="modalStore.showModal('add', 'site', group.index)"
+            >
+              <span class="site-card__box"><span class="site-card__add-glyph" i-carbon:add /></span>
+            </button>
+          </div>
         </div>
       </section>
     </template>

@@ -579,9 +579,10 @@ button,
 }
 
 /* ---------- 二级导航（分组标题条） ----------
- * 浏览态两套视图共用：SitePager（点一下跳到该分组所在页）
- * 与 SiteCompact（点一下滚到该分组段落）。
- * 放全局而不是各自的 scoped 里 —— 两个组件都要同一外观，复制一份迟早会走样。 */
+ * **现在只有 SitePager（图标网格视图）在用**：一个分组一页，点一下跳到该分组所在页。
+ * 紧凑列表 2026-09-28 起不再有这排胶囊 —— 那里一页就是全部内容，分组名直接做
+ * 卡片内标题（见下方 `.compact-panel`），再挂一排跳转胶囊属于同一信息的重复。
+ * 放全局而不是组件 scoped 里，是因为它挂在 `.pager` 之外、不属于任何一个组件的根节点。 */
 .group-nav {
   display: flex;
   flex-wrap: wrap;
@@ -622,8 +623,8 @@ button,
 }
 
 /* ---------- 紧凑列表（浏览态 SiteCompact，默认样式） ----------
- * 每个分组 = 「标题 + 计数」一行 + 一个圆角容器，容器里是「小图标 + 名称」的横排小格子。
- * 一屏能看到几十个站点，比「一页十个大图标 + 翻页」更接近主流导航页的用法。
+ * 每个分组 = 一张圆角卡片，**分组名 + 计数就落在卡片的左上角**，下面是「小图标 + 名称」
+ * 的横排小格子。一屏能看到几十个站点，比「一页十个大图标 + 翻页」更接近主流导航页的用法。
  *
  * ⚠️ 小图标尺寸不是写死的：由「图标大小」按比例缩小后经 `--compact-icon-*` 注入
  * （见 stores/wallpaper.ts 的 apply()）。这里**必须把整条尺寸推导链重新声明一遍** ——
@@ -639,21 +640,38 @@ button,
   --wallpaper-icon-draw-size: calc(var(--wallpaper-icon-size) - var(--wallpaper-icon-padding) * 2);
 }
 
-/* 分组之间留出段落感；`scroll-margin-top` 给二级导航跳转用，
- * 否则滚到位后标题会紧贴视口顶边，看起来像被切掉了 */
+/* 分组之间留出段落感；`scroll-margin-top` 给 `#compact-group-N` 锚点用，
+ * 否则直接跳过来时标题会紧贴视口顶边，看起来像被切掉了 */
 .compact-section {
   scroll-margin-top: 16px;
 }
 
 .compact-section + .compact-section {
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
+/* 一个分组 = 一张卡片：**分组名就在卡片的左上角**（`.compact-section__head`）。
+ *
+ * ⚠️ 边框 / 底色 / 内边距挂在这里，**不是** `.compact-grid` 上：
+ * 标题行要落在卡片内部，就得有个同时包住「标题行 + 网格」的容器。
+ * 2026-09-28 之前标题在卡片外面、居中的分组胶囊行在上面，
+ * 三样东西说的是同一件事（哪些站属于哪组），按用户要求合并成现在这一处。 */
+.compact-panel {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--text-c) 10%, transparent);
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--main-bg-c) 52%, transparent);
+  backdrop-filter: blur(var(--glass-blur, 10px)) saturate(var(--glass-saturate, 118%));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 10px)) saturate(var(--glass-saturate, 118%));
+}
+
+/* 标题行：卡片内部的第一行。左边距 0 是刻意的 —— 要跟下方网格的第一张卡片左边缘
+ * 严格对齐（差 2px 肉眼就能看出「标题没对齐」）。 */
 .compact-section__head {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin: 0 0 8px 2px;
+  margin: 0 0 8px;
 }
 
 /* h2 的浏览器默认字号/外边距在全局 reset 里没有被清掉（本项目只引了 base.scss），
@@ -680,12 +698,6 @@ button,
    * 再宽会掉到 5 列（比参考设计稀），再窄长一点的站名就开始频繁截断了。 */
   grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
   gap: 4px;
-  padding: 10px;
-  border: 1px solid color-mix(in srgb, var(--text-c) 10%, transparent);
-  border-radius: 12px;
-  background-color: color-mix(in srgb, var(--main-bg-c) 52%, transparent);
-  backdrop-filter: blur(var(--glass-blur, 10px)) saturate(var(--glass-saturate, 118%));
-  -webkit-backdrop-filter: blur(var(--glass-blur, 10px)) saturate(var(--glass-saturate, 118%));
 }
 
 /* 横排条目：小图标在左、名称（可带一行描述）在右。
