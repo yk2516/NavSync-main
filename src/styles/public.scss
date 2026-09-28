@@ -623,8 +623,9 @@ button,
 }
 
 /* ---------- 紧凑列表（浏览态 SiteCompact，默认样式） ----------
- * 每个分组 = 一张圆角卡片，**分组名 + 计数就落在卡片的左上角**，下面是「小图标 + 名称」
- * 的横排小格子。一屏能看到几十个站点，比「一页十个大图标 + 翻页」更接近主流导航页的用法。
+ * 一页从上到下把**所有分类**铺开：分类大标题（`.cate-section`）→ 该分类下的分组卡片
+ * （`.compact-panel`，分组名 + 计数落在卡片左上角）→ 下一个分类。
+ * 一屏能看到几十个站点，比「一页十个大图标 + 翻页」更接近主流导航页的用法。
  *
  * ⚠️ 小图标尺寸不是写死的：由「图标大小」按比例缩小后经 `--compact-icon-*` 注入
  * （见 stores/wallpaper.ts 的 apply()）。这里**必须把整条尺寸推导链重新声明一遍** ——
@@ -638,6 +639,37 @@ button,
   --site-card-box-pad-net: max(2px, calc(var(--site-card-box-pad) - var(--wallpaper-icon-padding)));
   --site-card-box-size: calc(var(--wallpaper-icon-size) + var(--site-card-box-pad-net) * 2);
   --wallpaper-icon-draw-size: calc(var(--wallpaper-icon-size) - var(--wallpaper-icon-padding) * 2);
+}
+
+/* 分类段落：紧凑列表把**所有分类**从上到下铺开，分类名是页面级大标题，
+ * 下面挂该分类的分组卡片。分类之间用一条细分隔线断开 —— 不隔开的话，
+ * 上一个分类的最后一张卡片和下一个分类的标题会糊成一块，看不出「换分类了」。 */
+.cate-section + .cate-section {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid color-mix(in srgb, var(--text-c) 10%, transparent);
+}
+
+.cate-section__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  /* 与下方分组卡片的左边缘对齐（面板内边距 10 + 边框 1 = 11px，这里用 2px 让视觉重心略收） */
+  margin: 0 0 10px 2px;
+}
+
+/* 分类名要比分组名（14px）明显大一档，否则两层标题分不出主次 */
+.cate-section__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.cate-section__count {
+  margin-left: auto;
+  font-size: 11px;
+  opacity: .5;
 }
 
 /* 分组之间留出段落感；`scroll-margin-top` 给 `#compact-group-N` 锚点用，

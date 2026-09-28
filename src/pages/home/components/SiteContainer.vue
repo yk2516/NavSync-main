@@ -7,12 +7,16 @@ import { prefetchOnIdle, useLazyMount } from '@/composables/lazyMount'
 /**
  * 三套导航视图，按模式选一：
  *   编辑态（站长在 /setting）→ SiteGroupList：分组全部平铺、标题置顶，可跨分组拖拽
- *   浏览态 · 紧凑列表（默认） → SiteCompact：全部分组纵向铺开，小图标 + 横排名称
+ *   浏览态 · 紧凑列表（默认） → SiteCompact：**所有分类**纵向铺开，小图标 + 横排名称
  *   浏览态 · 图标网格        → SitePager：一个分组一页，滚轮 / 圆点 / 方向键翻页
  *
  * 浏览态用哪套由 `wallpaperStore.settings.siteLayout` 决定（壁纸面板「站点排版」里切）。
  * 两者都是「访客第一眼就会看到的东西」，所以都静态导入 —— 动态导入会让默认视图
- * 先白一下再出现，省下的几 KB 远不值得。
+ * 先白一下再出现，省下的那几 KB 远不值得。
+ *
+ * ⚠️ **紧凑态不渲染一级分类标签**（`SiteNavBar`）：紧凑列表把所有分类铺在一页里，
+ * 分类靠页面上的大标题区分，「点标签左右切换」正是用户要去掉的交互（2026-09-28）。
+ * 分页视图仍然需要它 —— 那里一次只渲染一个分类。
  *
  * SiteGroupList 连同 vuedraggable 约 37KB，访客一辈子用不到，所以改成按需加载。
  * 它是「非此即彼」的视图，直接用动态导入 + 已有的 v-if 就够了。
@@ -38,7 +42,8 @@ onMounted(() => {
 
 <template>
   <div px="md:60 lg:120" text="$text-c-1 dark:$text-dark-c-1" z-8>
-    <SiteNavBar />
+    <!-- 编辑态用可拖拽的分类标签栏；浏览态只有分页视图需要它（紧凑列表把分类铺在一页里） -->
+    <SiteNavBar v-if="settingStore.isSetting || !isCompact" />
     <SiteGroupList v-if="settingStore.isSetting" />
     <SiteCompact v-else-if="isCompact" />
     <SitePager v-else />
