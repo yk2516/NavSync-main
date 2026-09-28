@@ -3,6 +3,7 @@ import MainHeader from './components/MainHeader.vue'
 import MainClock from './components/MainClock.vue'
 import MainSearch from './components/MainSearch.vue'
 import SiteContainer from './components/SiteContainer.vue'
+import BackToTop from './components/BackToTop.vue'
 import WallpaperFan from './components/WallpaperFan.vue'
 import { toggleSiteSytle } from '@/composables/dark'
 import { prefetchOnIdle, useLazyMount } from '@/composables/lazyMount'
@@ -57,6 +58,8 @@ onMounted(() => {
       <WallpaperPanel v-if="panelMounted" />
       <!-- 右下角小风车：点一下随机换一张壁纸 -->
       <WallpaperFan v-if="!settingStore.isSetting && !adminStore.isGate" />
+      <!-- 右下角返回顶部：滚过一屏的四分之一才出现，叠在小风车上方 -->
+      <BackToTop v-if="!settingStore.isSetting && !adminStore.isGate" />
       <TheFooter v-if="!adminStore.isGate" />
     </div>
   </TheDoc>

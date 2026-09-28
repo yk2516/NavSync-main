@@ -129,6 +129,15 @@ const perPageCount = computed(() => {
   return rows * cols
 })
 
+/**
+ * 当前是「图标网格」样式。
+ *
+ * 只有网格样式才用得上每页行数 / 列数 / 间距（那是分页容量的口径），
+ * 紧凑列表是纵向长滚动、列数随屏宽自适应 —— 那四个滑块在紧凑态下按下去什么都不会变，
+ * 留着就是死控件。所以按样式二选一渲染，而不是让用户去猜「为什么拖了没反应」。
+ */
+const isGridLayout = computed(() => settings.value.siteLayout === 'grid')
+
 /** 一键回到「2 行 × 5 列 + 正圆大图标」的推荐外观 */
 function resetLayout() {
   wallpaperStore.update({
@@ -293,9 +302,11 @@ function resetLayout() {
         </section>
 
         <!--
-          自定义布局：仿 inftab 的排版面板。
-          行数/列数决定「一页放多少个图标」，间距与图标大小决定疏密，
-          全部通过 --layout-* / --wallpaper-icon-size 这几个 CSS 变量实时生效。
+          站点排版 + 自定义布局：仿 inftab 的排版面板。
+          先选「站点样式」，再按样式给对应的参数：
+            · 图标网格 → 行数/列数决定「一页放多少个图标」，间距与图标大小决定疏密
+            · 紧凑列表 → 分组纵向铺开、列数随屏宽自适应，行列滑块没有意义（收起来，不做死控件）
+          全部通过 --layout-* / --wallpaper-icon-size / --compact-icon-* 这些变量实时生效。
         -->
         <section class="wallpaper-section">
           <div class="wallpaper-title">
@@ -307,36 +318,62 @@ function resetLayout() {
               @click="toggleSection('layout')"
             >
               <span class="section-toggle__caret" aria-hidden="true" />
-              <span>自定义布局</span>
+              <span>站点排版</span>
             </button>
-            <span class="layout-count">每页 {{ perPageCount }} 个</span>
+            <span v-if="isGridLayout" class="layout-count">每页 {{ perPageCount }} 个</span>
           </div>
           <div v-show="!closedSections.layout" id="wp-body-layout" class="wallpaper-body">
-            <div class="sliders">
-              <label><span>每页行数</span><input v-model.number="settings.layoutRows" type="range" min="1" max="6" step="1"><b>{{ settings.layoutRows }} 行</b></label>
-              <label><span>每页列数</span><input v-model.number="settings.layoutCols" type="range" min="2" max="8" step="1"><b>{{ settings.layoutCols }} 列</b></label>
-              <label><span>列间距</span><input v-model.number="settings.layoutColGap" type="range" min="0" max="80" step="1"><b>{{ settings.layoutColGap }}%</b></label>
-              <label><span>行间距</span><input v-model.number="settings.layoutRowGap" type="range" min="0" max="80" step="1"><b>{{ settings.layoutRowGap }}%</b></label>
-            </div>
-            <div
-              class="layout-preview" :style="{
-                gridTemplateColumns: `repeat(${Math.max(2, Math.round(settings.layoutCols || 5))}, 1fr)`,
-                gridTemplateRows: `repeat(${Math.max(1, Math.round(settings.layoutRows || 2))}, 1fr)`,
-                columnGap: `calc(var(--wallpaper-icon-size, 64px) * ${Math.round(settings.layoutColGap) / 100})`,
-                rowGap: `calc(var(--wallpaper-icon-size, 64px) * ${Math.round(settings.layoutRowGap) / 100})`,
-              }"
-            >
-              <span
-                v-for="n in perPageCount" :key="n" class="layout-preview__dot"
-                :style="{ width: 'min(100%, calc(var(--wallpaper-icon-size, 64px) * 0.55))' }"
-              />
-            </div>
-            <div class="layout-actions">
-              <span class="layout-hint">改动实时生效，翻页用小圆点或鼠标滚轮</span>
-              <button type="button" class="outline-button" @click="resetLayout">
-                恢复推荐布局
+            <!--
+              样式切换用自己的类名 `.layout-style-row`。
+              ⚠️ 不要复用 `.advanced-tabs`（高级壁纸来源页签的专属标记）或 `.icon-shape-row`
+              （图标形状那一行）—— 套件按这些类名取元素，混进来会让计数断言整体错位。
+            -->
+            <div class="layout-style-row">
+              <button
+                type="button"
+                :class="{ active: settings.siteLayout === 'compact' }"
+                @click="wallpaperStore.update({ siteLayout: 'compact' })"
+              >
+                紧凑列表
+              </button>
+              <button
+                type="button"
+                :class="{ active: settings.siteLayout === 'grid' }"
+                @click="wallpaperStore.update({ siteLayout: 'grid' })"
+              >
+                图标网格
               </button>
             </div>
+            <div v-if="!isGridLayout" class="layout-style-hint">
+              紧凑列表：分组纵向铺开、图标缩小、名称横排，一屏能看到更多站点；列数随屏宽自适应。
+            </div>
+            <template v-else>
+              <div class="sliders">
+                <label><span>每页行数</span><input v-model.number="settings.layoutRows" type="range" min="1" max="6" step="1"><b>{{ settings.layoutRows }} 行</b></label>
+                <label><span>每页列数</span><input v-model.number="settings.layoutCols" type="range" min="2" max="8" step="1"><b>{{ settings.layoutCols }} 列</b></label>
+                <label><span>列间距</span><input v-model.number="settings.layoutColGap" type="range" min="0" max="80" step="1"><b>{{ settings.layoutColGap }}%</b></label>
+                <label><span>行间距</span><input v-model.number="settings.layoutRowGap" type="range" min="0" max="80" step="1"><b>{{ settings.layoutRowGap }}%</b></label>
+              </div>
+              <div
+                class="layout-preview" :style="{
+                  gridTemplateColumns: `repeat(${Math.max(2, Math.round(settings.layoutCols || 5))}, 1fr)`,
+                  gridTemplateRows: `repeat(${Math.max(1, Math.round(settings.layoutRows || 2))}, 1fr)`,
+                  columnGap: `calc(var(--wallpaper-icon-size, 64px) * ${Math.round(settings.layoutColGap) / 100})`,
+                  rowGap: `calc(var(--wallpaper-icon-size, 64px) * ${Math.round(settings.layoutRowGap) / 100})`,
+                }"
+              >
+                <span
+                  v-for="n in perPageCount" :key="n" class="layout-preview__dot"
+                  :style="{ width: 'min(100%, calc(var(--wallpaper-icon-size, 64px) * 0.55))' }"
+                />
+              </div>
+              <div class="layout-actions">
+                <span class="layout-hint">改动实时生效，翻页用小圆点或鼠标滚轮</span>
+                <button type="button" class="outline-button" @click="resetLayout">
+                  恢复推荐布局
+                </button>
+              </div>
+            </template>
           </div>
         </section>
 
@@ -635,4 +672,22 @@ function resetLayout() {
 }
 .layout-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .layout-hint { flex: 1; font-size: 12px; opacity: .62; }
+/* 站点样式切换：与图标形状那一行同观感，但用自己的类名（见模板注释） */
+.layout-style-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.layout-style-row button {
+  flex: 1;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--text-c) 18%, transparent);
+  background: color-mix(in srgb, var(--main-bg-c) 70%, transparent);
+  color: inherit;
+  cursor: pointer;
+  transition: border-color .2s, transform .2s, box-shadow .2s;
+}
+.layout-style-row button:hover { transform: translateY(-1px); }
+.layout-style-row button.active {
+  border-color: var(--wallpaper-accent, var(--primary-c));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 22%, transparent);
+}
+.layout-style-hint { font-size: 12px; line-height: 1.6; opacity: .62; }
 </style>

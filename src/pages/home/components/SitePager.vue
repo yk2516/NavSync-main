@@ -351,46 +351,8 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-/* 二级导航：当前一级分类下的全部分组标题，横排紧凑铺开。
- * 翻页（滚轮 / 圆点 / 方向键 / 触屏滑动）时高亮跟着当前页走。 */
-.group-nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 2px 4px;
-  margin-bottom: 18px;
-}
-
-.group-nav__item {
-  padding: 3px 9px;
-  border: 0;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-c);
-  background-color: transparent;
-  opacity: .58;
-  cursor: pointer;
-  transition: opacity .2s ease, color .2s ease, background-color .2s ease;
-}
-
-.group-nav__item:hover {
-  opacity: .9;
-  background-color: color-mix(in srgb, var(--main-bg-c) 46%, transparent);
-}
-
-.group-nav__item--active {
-  font-weight: 600;
-  opacity: 1;
-  color: var(--wallpaper-accent, var(--primary-c));
-  background-color: color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 16%, transparent);
-}
-
-.group-nav__item:focus-visible {
-  outline: 2px solid var(--wallpaper-accent, var(--primary-c));
-  outline-offset: 1px;
-}
+/* 二级导航（`.group-nav*`）的样式在 `styles/public.scss`：
+ * 紧凑列表视图（SiteCompact）也要用同一套外观，放各自的 scoped 里会重复且迟早走样。 */
 
 .pager__dots {
   display: flex;

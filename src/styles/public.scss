@@ -577,3 +577,189 @@ button,
     left: 9px;
   }
 }
+
+/* ---------- 二级导航（分组标题条） ----------
+ * 浏览态两套视图共用：SitePager（点一下跳到该分组所在页）
+ * 与 SiteCompact（点一下滚到该分组段落）。
+ * 放全局而不是各自的 scoped 里 —— 两个组件都要同一外观，复制一份迟早会走样。 */
+.group-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 4px;
+  margin-bottom: 18px;
+}
+
+.group-nav__item {
+  padding: 3px 9px;
+  border: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-c);
+  background-color: transparent;
+  opacity: .58;
+  cursor: pointer;
+  transition: opacity .2s ease, color .2s ease, background-color .2s ease;
+}
+
+.group-nav__item:hover {
+  opacity: .9;
+  background-color: color-mix(in srgb, var(--main-bg-c) 46%, transparent);
+}
+
+.group-nav__item--active {
+  font-weight: 600;
+  opacity: 1;
+  color: var(--wallpaper-accent, var(--primary-c));
+  background-color: color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 16%, transparent);
+}
+
+.group-nav__item:focus-visible {
+  outline: 2px solid var(--wallpaper-accent, var(--primary-c));
+  outline-offset: 1px;
+}
+
+/* ---------- 紧凑列表（浏览态 SiteCompact，默认样式） ----------
+ * 每个分组 = 「标题 + 计数」一行 + 一个圆角容器，容器里是「小图标 + 名称」的横排小格子。
+ * 一屏能看到几十个站点，比「一页十个大图标 + 翻页」更接近主流导航页的用法。
+ *
+ * ⚠️ 小图标尺寸不是写死的：由「图标大小」按比例缩小后经 `--compact-icon-*` 注入
+ * （见 stores/wallpaper.ts 的 apply()）。这里**必须把整条尺寸推导链重新声明一遍** ——
+ * `--site-card-box-*` 是在 `:root` 上算好的，自定义属性继承的是「在 :root 已代入的结果」，
+ * 在子元素里改 `--wallpaper-icon-size` 并不会让它们重算。不重声明的话，
+ * 「＋」的常驻虚线环会按**大图标**的尺寸画，在紧凑列表里大出一整圈（硬约定 46）。 */
+.compact-list {
+  --wallpaper-icon-size: var(--compact-icon-size, 23px);
+  --wallpaper-icon-padding: var(--compact-icon-padding, 2px);
+  --site-card-box-pad: clamp(4px, calc(var(--wallpaper-icon-size) * 0.14), 10px);
+  --site-card-box-pad-net: max(2px, calc(var(--site-card-box-pad) - var(--wallpaper-icon-padding)));
+  --site-card-box-size: calc(var(--wallpaper-icon-size) + var(--site-card-box-pad-net) * 2);
+  --wallpaper-icon-draw-size: calc(var(--wallpaper-icon-size) - var(--wallpaper-icon-padding) * 2);
+}
+
+/* 分组之间留出段落感；`scroll-margin-top` 给二级导航跳转用，
+ * 否则滚到位后标题会紧贴视口顶边，看起来像被切掉了 */
+.compact-section {
+  scroll-margin-top: 16px;
+}
+
+.compact-section + .compact-section {
+  margin-top: 18px;
+}
+
+.compact-section__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px 2px;
+}
+
+/* h2 的浏览器默认字号/外边距在全局 reset 里没有被清掉（本项目只引了 base.scss），
+ * 这里显式写全，保证标题是「小号加粗」而不是 1.5em + 上下 0.83em 的默认观感 */
+.compact-section__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.compact-section__count {
+  /* 计数推到标题行的最右侧（参考设计里「12 个工具」就落在右边），
+   * 而不是紧贴标题 —— 标题长短不一时右侧对齐才成一条线。 */
+  margin-left: auto;
+  font-size: 11px;
+  opacity: .5;
+}
+
+.compact-grid {
+  display: grid;
+  /* 列数随屏宽自适应：桌面（容器内容宽 ~932px）6 列，1024 下 4 列，手机 390 下 2 列，
+   * 都不需要额外写断点。下限 146px 要刚好容得下「图标 + 内边距 + 6~8 个汉字」，
+   * 再宽会掉到 5 列（比参考设计稀），再窄长一点的站名就开始频繁截断了。 */
+  grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--text-c) 10%, transparent);
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--main-bg-c) 52%, transparent);
+  backdrop-filter: blur(var(--glass-blur, 10px)) saturate(var(--glass-saturate, 118%));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 10px)) saturate(var(--glass-saturate, 118%));
+}
+
+/* 横排条目：小图标在左、名称（可带一行描述）在右。
+ * 底色的悬停反馈落在**整块条目**上（不像网格视图那样只晕在图标周围），
+ * 因为条目本身已经很窄，图标周围那点内边距根本画不出可见的反馈。 */
+.site-card--compact {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background-color .16s ease;
+}
+
+/* 网格视图的「悬停底色 + 上浮」挂在 `.site-card__box` 上，紧凑列表里必须关掉：
+ * 否则鼠标划过时会出现「图标周围一小块灰底 + 图标跳一下」，而整块条目毫无反馈。
+ * ⚠️ 选择器要带上 `:not(...)` 两段 —— 基础规则那边是
+ * `.site-card:not(.site-card--dragging):not(.site-card--invalid):hover .site-card__box`
+ * （5 个类），只写 `.site-card--compact:hover .site-card__box`（3 个类）比不过它。 */
+.site-card--compact:not(.site-card--dragging):not(.site-card--invalid):hover .site-card__box,
+.site-card--compact:hover .site-card__box {
+  background-color: transparent;
+  transform: none;
+}
+
+.site-card--compact:not(.site-card--dragging):not(.site-card--invalid):hover {
+  background-color: var(--site-hover-c);
+}
+
+/* 小图标不需要额外的悬停内边距（那块留白是给网格视图的大图标做晕影用的） */
+.site-card--compact .site-card__box {
+  padding: 0;
+}
+
+.site-card__text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.site-card--compact .site-card__name {
+  text-align: left;
+  font-size: 13px;
+  opacity: .92;
+}
+
+.site-card__desc {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  line-height: 1.3;
+  opacity: .5;
+}
+
+/* 紧凑列表里的「＋」：沿用虚线环那套构造（尺寸已随小图标收缩），
+ * 只是不再靠左对齐 —— 它没有文字，居中才像个格子。
+ * 环本身由 `.site-card--add .site-card__box::after` 画，这里只调字形大小。 */
+.site-card--compact.site-card--add {
+  justify-content: center;
+}
+
+.site-card--compact.site-card--add .site-card__add-glyph {
+  font-size: calc(var(--wallpaper-icon-draw-size) * .6);
+}
+
+/* 悬停反馈同样落在整块条目上（基础规则会画到 __box 上，这里压回去） */
+.site-card--compact.site-card--add:hover .site-card__box {
+  background-color: transparent;
+  transform: none;
+}
+
+.site-card--compact.site-card--add:hover {
+  background-color: var(--site-hover-c);
+}

@@ -7,6 +7,16 @@
  */
 export type WallpaperSource = 'none' | 'url' | 'gradient'
 export type GlassEffect = 'classic' | 'liquid'
+/**
+ * 站点列表的排版样式（浏览态）。
+ *
+ * - `grid`：图标网格 + 分页（滚轮 / 圆点 / 方向键翻页），一行一页一个分组。
+ * - `compact`：紧凑列表，当前分类的**全部分组纵向铺开**成一页长滚动，
+ *   每个条目是「小图标 + 名称（可带一行描述）」的横排小格子。
+ *
+ * 两套视图的数据完全一样，只是「怎么摆」。默认 `compact`。
+ */
+export type SiteLayout = 'grid' | 'compact'
 /** 站点图标来源：网站默认 favicon、第三方服务，或本地合成纯色字母图标 */
 export type FaviconSource = 'site' | 'google' | 'duckduckgo' | 'solid'
 
@@ -39,6 +49,8 @@ export interface WallpaperSettings {
    * 同一张图立刻显得锐利、精致（参照 muiui 那类导航页的做法：45px 盒 + 8px 内缩）。
    */
   iconPadding: number
+  /** 浏览态站点排版样式：紧凑列表 / 图标网格 */
+  siteLayout: SiteLayout
   /** 自定义布局：每页行数 */
   layoutRows: number
   /** 自定义布局：每页列数 */

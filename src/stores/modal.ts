@@ -20,6 +20,7 @@ export const useModalStore = defineStore('modal', () => {
   const inputValues = reactive({
     name: '',
     url: '',
+    desc: '',
     favicon: '',
     bgColor: '',
     iconPadding: 0,
@@ -29,6 +30,7 @@ export const useModalStore = defineStore('modal', () => {
   function resetInputs() {
     inputValues.name = ''
     inputValues.url = ''
+    inputValues.desc = ''
     inputValues.favicon = ''
     inputValues.bgColor = ''
     inputValues.iconPadding = 0

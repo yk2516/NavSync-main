@@ -11,6 +11,8 @@ declare global {
   const $ref: typeof import('vue/macros')['$ref']
   const $shallowRef: typeof import('vue/macros')['$shallowRef']
   const $toRef: typeof import('vue/macros')['$toRef']
+  const COMPACT_ICON_MIN: typeof import('./stores/wallpaper')['COMPACT_ICON_MIN']
+  const COMPACT_ICON_RATIO: typeof import('./stores/wallpaper')['COMPACT_ICON_RATIO']
   const EffectScope: typeof import('vue')['EffectScope']
   const ICON_BASE_SIZE: typeof import('./stores/wallpaper')['ICON_BASE_SIZE']
   const WALLPAPER_GRADIENTS: typeof import('./stores/wallpaper')['WALLPAPER_GRADIENTS']
@@ -343,6 +345,8 @@ declare module 'vue' {
     readonly $ref: UnwrapRef<typeof import('vue/macros')['$ref']>
     readonly $shallowRef: UnwrapRef<typeof import('vue/macros')['$shallowRef']>
     readonly $toRef: UnwrapRef<typeof import('vue/macros')['$toRef']>
+    readonly COMPACT_ICON_MIN: UnwrapRef<typeof import('./stores/wallpaper')['COMPACT_ICON_MIN']>
+    readonly COMPACT_ICON_RATIO: UnwrapRef<typeof import('./stores/wallpaper')['COMPACT_ICON_RATIO']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly ICON_BASE_SIZE: UnwrapRef<typeof import('./stores/wallpaper')['ICON_BASE_SIZE']>
     readonly WALLPAPER_GRADIENTS: UnwrapRef<typeof import('./stores/wallpaper')['WALLPAPER_GRADIENTS']>
@@ -669,6 +673,8 @@ declare module '@vue/runtime-core' {
     readonly $ref: UnwrapRef<typeof import('vue/macros')['$ref']>
     readonly $shallowRef: UnwrapRef<typeof import('vue/macros')['$shallowRef']>
     readonly $toRef: UnwrapRef<typeof import('vue/macros')['$toRef']>
+    readonly COMPACT_ICON_MIN: UnwrapRef<typeof import('./stores/wallpaper')['COMPACT_ICON_MIN']>
+    readonly COMPACT_ICON_RATIO: UnwrapRef<typeof import('./stores/wallpaper')['COMPACT_ICON_RATIO']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly ICON_BASE_SIZE: UnwrapRef<typeof import('./stores/wallpaper')['ICON_BASE_SIZE']>
     readonly WALLPAPER_GRADIENTS: UnwrapRef<typeof import('./stores/wallpaper')['WALLPAPER_GRADIENTS']>

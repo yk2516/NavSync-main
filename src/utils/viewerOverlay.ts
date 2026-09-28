@@ -25,8 +25,15 @@ import type { Category, Group, Site } from '@/types'
 
 const STORAGE_KEY = 'viewer_edits'
 
-/** 允许被覆盖的站点字段白名单：localStorage 里的东西一律按外部输入处理 */
-const PATCH_KEYS = ['name', 'url', 'favicon', 'bgColor', 'iconPadding'] as const
+/**
+ * 允许被覆盖的站点字段白名单：localStorage 里的东西一律按外部输入处理。
+ *
+ * ⚠️ 新增 `Site` 上可编辑的字段时**必须同步加到这里**，否则访客改完当场可见、
+ * 刷新就丢 —— `sanitizePatch()` 会把这个键悄悄过滤掉，全程没有任何报错。
+ * 2026-09-28 加 `desc`（紧凑列表的名称下方说明）时就漏了这一步，
+ * 表现是「填了描述、当场生效、刷新后没了」，靠 compact_check 的往返断言才抓到。
+ */
+const PATCH_KEYS = ['name', 'url', 'desc', 'favicon', 'bgColor', 'iconPadding'] as const
 type PatchKey = typeof PATCH_KEYS[number]
 
 export interface ViewerOverlay {

@@ -71,6 +71,14 @@ function handleAllCommit(_e: Event) {
         :status="errorInput && modalStore.inputValues.url.length <= 0 ? 'error' : 'success'"
         @keydown.enter="handleAllCommit"
       />
+      <!-- 一行说明（选填）：紧凑列表视图会显示在名称下方，用来交代「这个站是干什么的」 -->
+      <n-input
+        v-if="isSite"
+        v-model:value="modalStore.inputValues.desc"
+        placeholder="描述（选填，显示在名称下方）"
+        my-8
+        @keydown.enter="handleAllCommit"
+      />
       <div v-if="isSite && faviconPreviews.length" class="favicon-previews" aria-label="网址图标预览">
         <div class="favicon-previews__title">
           输入网址后可预览图标来源

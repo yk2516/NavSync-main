@@ -1,4 +1,4 @@
-import type { WallpaperSettings } from '@/types'
+import type { SiteLayout, WallpaperSettings } from '@/types'
 import { readStore, writeStore } from '@/utils'
 
 const STORAGE_KEY_ADMIN = 'wallpaper_admin'
@@ -6,6 +6,15 @@ const STORAGE_KEY_VIEWER = 'wallpaper_viewer'
 
 /** 图标基准尺寸：面板里 100% 对应 64px，与站点卡片原始尺寸一致 */
 export const ICON_BASE_SIZE = 64
+
+/**
+ * 紧凑列表的小图标 = 全局图标大小 × 这个比例（下限见 COMPACT_ICON_MIN）。
+ * 0.32 是照着参考设计定的：默认 112% → 71.7px × 0.32 ≈ 22.9px，
+ * 和主流导航页里「小图标 + 横排文字」那一档的观感一致。
+ */
+export const COMPACT_ICON_RATIO = 0.32
+/** 紧凑列表图标的下限（px）：再小就认不出是什么站了 */
+export const COMPACT_ICON_MIN = 16
 
 /**
  * 设置写盘的合并窗口（ms）。
@@ -162,6 +171,9 @@ const DEFAULTS: WallpaperSettings = {
   // 两倍多再顶到圆角边上，观感「大而糊」。留白让绘制区回落到接近原生尺寸，
   // 同一张图立刻显得锐利 —— 参照 muiui 那类导航页（45px 盒 + 8px 内缩）。
   iconPadding: 12,
+  // 浏览态默认走「紧凑列表」：分组纵向铺开、图标缩小、名称横排 —— 一屏能看到几十个站点，
+  // 比「一页十个大图标 + 翻页」更接近主流导航页的用法。想回到图标网格在面板里切一下即可。
+  siteLayout: 'compact',
   // 自定义布局默认值：2 行 × 5 列，间距各 30%（相对图标大小）
   layoutRows: 2,
   layoutCols: 5,
@@ -223,6 +235,11 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
       || parsed.faviconSource === 'solid')
       ? parsed.faviconSource
       : DEFAULTS.faviconSource
+    // 后加的字段：旧数据里没有 → 落到新的默认值（紧凑列表）。
+    // 脏值（拼错、null、数字）同样折回默认，不让它决定渲染哪个视图。
+    const siteLayout: SiteLayout = (parsed.siteLayout === 'grid' || parsed.siteLayout === 'compact')
+      ? parsed.siteLayout
+      : DEFAULTS.siteLayout
 
     // ⚠️ 这里**逐字段白名单**构造，绝不写 `{ ...DEFAULTS, ...parsed }`.
     //
@@ -256,6 +273,7 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
         40, 140, DEFAULTS.iconSize),
       // 后加的字段，旧数据里没有 → clamp 会走 fallback（= 新的默认留白）。
       iconPadding: clamp(parsed.iconPadding, 0, 30, DEFAULTS.iconPadding),
+      siteLayout,
       // 布局字段是后加的，旧数据里没有；即便有也可能是脏值，统一在这里夹到合法区间，
       // 否则 0 列 / NaN 会让网格塌成一条线，而面板滑块也会显示成怪值。
       layoutRows: clamp(parsed.layoutRows, 1, 6, DEFAULTS.layoutRows),
@@ -489,8 +507,14 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     const iconPx = ICON_BASE_SIZE * clamp(current.iconSize, 40, 140, DEFAULTS.iconSize) / 100
     root.style.setProperty('--wallpaper-icon-size', `${iconPx.toFixed(1)}px`)
     // 留白按「图标盒 × 百分比」换算成像素：图标调大时留白跟着放大，比例不变。
-    root.style.setProperty('--wallpaper-icon-padding',
-      `${(iconPx * clamp(current.iconPadding, 0, 30, DEFAULTS.iconPadding) / 100).toFixed(1)}px`)
+    const paddingPct = clamp(current.iconPadding, 0, 30, DEFAULTS.iconPadding)
+    root.style.setProperty('--wallpaper-icon-padding', `${(iconPx * paddingPct / 100).toFixed(1)}px`)
+    // 紧凑列表的小图标：由「图标大小」按比例缩小（默认 112% → 71.7px → 22.9px），
+    // 而不是写死一个像素值 —— 站长拖「图标大小」时两种视图一起变大变小，控件不会变成死的。
+    // 下限 16px：再小图标就糊成一团，看不清是什么站。
+    const compactIconPx = Math.max(COMPACT_ICON_MIN, iconPx * COMPACT_ICON_RATIO)
+    root.style.setProperty('--compact-icon-size', `${compactIconPx.toFixed(1)}px`)
+    root.style.setProperty('--compact-icon-padding', `${(compactIconPx * paddingPct / 100).toFixed(1)}px`)
     root.style.setProperty('--wallpaper-search-width', `${clamp(current.searchWidth, 260, 900, DEFAULTS.searchWidth)}px`)
     root.style.setProperty('--wallpaper-search-radius', `${clamp(current.searchRadius, 0, 28, DEFAULTS.searchRadius)}px`)
     // 自定义布局：行数/列数/间距。间距用「图标大小 × 百分比」换算，
@@ -506,6 +530,9 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     root.dataset.wallpaperGlass = current.glass
     root.dataset.wallpaperSource = current.source
     root.dataset.wallpaperAutoDim = current.autoDim ? 'true' : 'false'
+    // 浏览态渲染哪套视图由组件自己判断，这里同步一份到 DOM 上：
+    // 验收脚本（和排查问题的人）可以直接从 html 上读到当前样式，不用去翻 localStorage。
+    root.dataset.siteLayout = current.siteLayout
     body.style.setProperty('--primary-c', current.accent || '')
     // 皮肤也要参与明暗判定：它铺在 html 上，是「没有图片/渐变壁纸时」唯一的底色
     syncTone(
