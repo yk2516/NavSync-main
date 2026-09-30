@@ -21,7 +21,6 @@ export type SiteLayout = 'grid' | 'compact'
 export type FaviconSource = 'site' | 'google' | 'duckduckgo' | 'solid'
 
 export interface WallpaperSettings {
-  skin: string
   accent: string
   /** 全局站点图标来源；每个设备独立保存，访客与站长分别保存 */
   faviconSource: FaviconSource
@@ -61,6 +60,8 @@ export interface WallpaperSettings {
   layoutRowGap: number
   /** 搜索框宽度（px） */
   searchWidth: number
+  /** 搜索框高度（px） */
+  searchHeight: number
   /** 搜索框圆角（px） */
   searchRadius: number
 }

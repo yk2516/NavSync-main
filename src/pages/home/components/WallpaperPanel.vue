@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { WALLPAPER_GRADIENTS, wallpaperSkins } from '@/stores/wallpaper'
+import { WALLPAPER_GRADIENTS } from '@/stores/wallpaper'
 
 const wallpaperStore = useWallpaperStore()
 // 「本地图片」页签已移除（用户明确要求），只剩渐变与图片链接两个来源。
@@ -11,20 +11,7 @@ const imageError = ref('')
 
 const settings = computed(() => wallpaperStore.settings)
 
-/**
- * 皮肤按 group 分组展示（基础 / 清新 / 明亮 / 深色 / 品牌）。
- * 分组顺序 = SKINS 里的键序，所以新增皮肤时把条目放到对应分组的末尾即可。
- */
-const skinGroups = computed(() => {
-  const groups: Record<string, { key: string; label: string; background: string }[]> = {}
-  for (const [key, skin] of Object.entries(wallpaperSkins))
-    (groups[skin.group] ||= []).push({ key, label: skin.label, background: skin.background })
-  return groups
-})
-
-const skinCount = computed(() => Object.keys(wallpaperSkins).length)
-
-/** 渐变预设同样按 group 分组（清新柔和 / 强对比），顺序 = WALLPAPER_GRADIENTS 的数组序 */
+/** 渐变预设按 group 分组（现在只剩「清新柔和」一组），顺序 = WALLPAPER_GRADIENTS 的数组序 */
 const gradientGroups = computed(() => {
   const groups: Record<string, { label: string; value: string }[]> = {}
   for (const item of WALLPAPER_GRADIENTS)
@@ -33,13 +20,13 @@ const gradientGroups = computed(() => {
 })
 
 /**
- * 折叠状态（三级：分区 / 皮肤分组 / 渐变分组）。
+ * 折叠状态（两级：分区 / 渐变分组）。
  *
  * 默认值按「打开面板第一眼看到什么」定：
- * - **分区默认展开** —— 皮肤、图标、搜索框、布局都是常调项，收起来反而要多点一次；
+ * - **分区默认展开** —— 图标、搜索框、布局都是常调项，收起来反而要多点一次；
  *   折叠是给「这次只想调某一项」的场景用的，不是默认态。
- * - **皮肤分组只展开第一组（基础）** —— 48 套铺开要滚 3 屏，而绝大多数人只用默认那几套。
- * - **渐变分组全部收起** —— 它们本来就藏在「高级壁纸」的渐变页签里，是二级入口。
+ * - **渐变分组默认展开** —— 「强对比」分组已按用户要求移除，剩下的「清新柔和」
+ *   是唯一的分组也是用户最常用的一组，收起来只是多一次点击。
  *
  * 记录的是**收起**的键（不是展开）：默认值只需写「哪些默认收起」，
  * 新增分组时不会因为忘记加默认项而被误收起来。
@@ -48,19 +35,10 @@ const gradientGroups = computed(() => {
  * 下次打开回到精简默认态，比「记住上次」更好用，也省掉一个新存储键。
  */
 const closedSections = ref<Record<string, boolean>>({})
-const closedSkinGroups = ref<Record<string, boolean>>(
-  Object.fromEntries(Object.keys(skinGroups.value).slice(1).map(name => [name, true])),
-)
-const closedGradientGroups = ref<Record<string, boolean>>(
-  Object.fromEntries(Object.keys(gradientGroups.value).map(name => [name, true])),
-)
+const closedGradientGroups = ref<Record<string, boolean>>({})
 
 function toggleSection(id: string) {
   closedSections.value[id] = !closedSections.value[id]
-}
-
-function toggleSkinGroup(name: string) {
-  closedSkinGroups.value[name] = !closedSkinGroups.value[name]
 }
 
 function toggleGradientGroup(name: string) {
@@ -170,55 +148,6 @@ function resetLayout() {
             <button
               class="section-toggle"
               type="button"
-              :aria-expanded="!closedSections.skin"
-              aria-controls="wp-body-skin"
-              @click="toggleSection('skin')"
-            >
-              <span class="section-toggle__caret" aria-hidden="true" />
-              <span>皮肤</span>
-            </button>
-            <span class="panel-hint">{{ skinCount }} 套 · 纯 CSS，切换即时</span>
-          </div>
-          <div v-show="!closedSections.skin" id="wp-body-skin" class="wallpaper-body">
-            <div v-for="(list, group) in skinGroups" :key="group" class="skin-group">
-              <!-- 分组标题也是折叠头：48 套皮肤一次全铺开要滚三屏。
-                   计数放在按钮**外面** —— `.skin-group__title` 的纯文本被验收套件当作分组名比对，
-                   往里塞「16 套」会让 `groups == ['基础','清新',...]` 直接翻红。 -->
-              <div class="skin-group__head">
-                <button
-                  class="skin-group__title"
-                  type="button"
-                  :aria-expanded="!closedSkinGroups[group]"
-                  @click="toggleSkinGroup(group)"
-                >
-                  <span class="section-toggle__caret" aria-hidden="true" />
-                  <span>{{ group }}</span>
-                </button>
-                <span class="skin-group__meta">{{ list.length }} 套</span>
-              </div>
-              <div v-show="!closedSkinGroups[group]" class="skin-grid">
-                <button
-                  v-for="skin in list"
-                  :key="skin.key"
-                  class="skin-card"
-                  :class="{ active: settings.skin === skin.key && settings.source === 'none' }"
-                  type="button"
-                  :title="`使用「${skin.label}」皮肤`"
-                  @click="wallpaperStore.setSkin(skin.key)"
-                >
-                  <span class="skin-preview" :style="{ background: skin.background }" />
-                  <span>{{ skin.label }}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="wallpaper-section">
-          <div class="wallpaper-title">
-            <button
-              class="section-toggle"
-              type="button"
               :aria-expanded="!closedSections.accent"
               aria-controls="wp-body-accent"
               @click="toggleSection('accent')"
@@ -295,6 +224,7 @@ function resetLayout() {
           <div v-show="!closedSections.search" id="wp-body-search" class="wallpaper-body">
             <div class="sliders">
               <label><span>搜索框宽度</span><input v-model.number="settings.searchWidth" type="range" min="260" max="900" step="10"><b>{{ settings.searchWidth }}px</b></label>
+              <label><span>搜索框高度</span><input v-model.number="settings.searchHeight" type="range" min="36" max="80" step="1"><b>{{ settings.searchHeight }}px</b></label>
               <label><span>搜索框圆角</span><input v-model.number="settings.searchRadius" type="range" min="0" max="28" step="1"><b>{{ settings.searchRadius }}px</b></label>
               <label><span>搜索框透明度</span><input v-model.number="settings.inputOpacity" type="range" min="0" max="100"><b>{{ formatPercent(settings.inputOpacity) }}</b></label>
             </div>
@@ -547,7 +477,6 @@ function resetLayout() {
  * 用 <button> 而不是可点 <div>：键盘 Tab 能聚焦、Enter/Space 能触发，不用手写 keydown。
  * 代价是要把浏览器默认样式清干净，否则按钮的字号/颜色会顶掉标题自己的样式。 */
 .section-toggle,
-.skin-group__title,
 .preset-group__title {
   display: inline-flex;
   align-items: center;
@@ -565,7 +494,7 @@ function resetLayout() {
 /* 展开 / 收起箭头。
  *
  * ⚠️ **必须用 CSS 边框画三角，不能用 ▾ / ▶ 这类文字字符**：验收套件把
- * `.wallpaper-title` / `.skin-group__title` / `.preset-group__title` 的 textContent
+ * `.wallpaper-title` / `.preset-group__title` 的 textContent
  * 当作纯文本比对（分组名是严格相等），多一个字符就整条断言翻红。
  * 用 `currentColor` 让箭头跟随标题文字色，深色壁纸下自动变浅。 */
 .section-toggle__caret {
@@ -591,32 +520,23 @@ function resetLayout() {
   color: inherit;
   font: inherit;
 }
-.skin-group + .skin-group { margin-top: 12px; }
-/* 分组标题行：折叠头在左、套数在右。计数**不能**塞进按钮里（见模板注释）。 */
-.skin-group__head,
+/* 分组标题行：折叠头在左、个数在右。计数**不能**塞进按钮里（见模板注释）。 */
 .preset-group__head { display: flex; align-items: center; gap: 8px; }
-.skin-group__head { margin-bottom: 6px; }
 .preset-group__head { margin: 10px 0 6px; }
-.skin-group__title,
 .preset-group__title { font-size: 12px; font-weight: 400; opacity: .62; }
-.skin-group__title:hover,
 .preset-group__title:hover { opacity: .95; }
-.skin-group__meta,
 .preset-group__meta { margin-left: auto; font-size: 11px; opacity: .5; }
-.skin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.skin-card, .glass-card, .advanced-tabs button, .icon-shape-row button, .gradient-preset {
+.glass-card, .advanced-tabs button, .icon-shape-row button, .gradient-preset {
   border: 1px solid color-mix(in srgb, var(--text-c) 18%, transparent);
   background: color-mix(in srgb, var(--main-bg-c) 70%, transparent);
   color: inherit;
   cursor: pointer;
   transition: border-color .2s, transform .2s, box-shadow .2s;
 }
-.skin-card, .gradient-preset { display: grid; gap: 4px; padding: 4px; border-radius: 8px; font-size: 12px; line-height: 1.25; }
-.skin-card:hover, .glass-card:hover, .gradient-preset:hover { transform: translateY(-1px); }
-.skin-card.active, .glass-card.active, .advanced-tabs button.active, .icon-shape-row button.active, .gradient-preset.active { border-color: var(--wallpaper-accent, var(--primary-c)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 22%, transparent); }
-/* 皮肤有 40+ 套，预览条压到 30px 才不至于把面板拉太长 */
-.skin-preview { height: 30px; border-radius: 5px; }
-/* 渐变预设：3 列，点一下直接应用。分「清新柔和 / 强对比」两组展示，两组都可折叠 */
+.gradient-preset { display: grid; gap: 4px; padding: 4px; border-radius: 8px; font-size: 12px; line-height: 1.25; }
+.glass-card:hover, .gradient-preset:hover { transform: translateY(-1px); }
+.glass-card.active, .advanced-tabs button.active, .icon-shape-row button.active, .gradient-preset.active { border-color: var(--wallpaper-accent, var(--primary-c)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 22%, transparent); }
+/* 渐变预设：3 列，点一下直接应用。分组可折叠，计数在按钮外，保持 `.preset-group__title` 的纯文本是分组名 */
 .preset-group + .preset-group { margin-top: 12px; }
 .gradient-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .gradient-preset__preview { height: 26px; border-radius: 5px; }

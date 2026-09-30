@@ -160,20 +160,14 @@ body::-webkit-scrollbar {
 /* ---------- 壁纸层 ----------
  * 层次（由下到上）：
  *   1. html 背景色   主题底色（--bg-c / 暗色 --dark-bg-c）
- *   2. html 背景图   皮肤渐变（--wallpaper-skin，default 皮肤为 none）
- *   3. body::before  壁纸图片（z-index -2）
- *   4. body::after   渐变壁纸（z-index -1）
- *   5. 页面内容
+ *   2. body::before  壁纸图片（z-index -2）
+ *   3. body::after   渐变壁纸（z-index -1）
+ *   4. 页面内容
  *
  * body 自身必须保持透明：body 的背景绘制在负 z-index 伪元素之上，
- * 之前写在 body 上的不透明皮肤背景，正是「设了壁纸却完全看不见」的原因。
+ * 之前写在 body 上的不透明背景，正是「设了壁纸却完全看不见」的原因。
+ * （原第 2 层「皮肤」已按用户要求于 2026-09-30 整块移除。）
  */
-html {
-  background-image: var(--wallpaper-skin, none);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
 
 body {
   position: relative;

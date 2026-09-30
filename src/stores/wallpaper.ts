@@ -27,98 +27,22 @@ export const COMPACT_ICON_MIN = 16
 const PERSIST_DEBOUNCE_MS = 300
 
 /**
- * 预设皮肤。
- *
- * `group` 只用于面板分组展示（基础 / 清新 / 明亮 / 深色 / 品牌），不影响渲染；
- * **分组顺序 = 这里的键序**，所以新增皮肤要放到对应分组的末尾。
- * 「清新」排在深色前面是有意的：导航页是图标密集版面，浅底柔和色才是默认该看到的选项。
- * `background` 直接写进 html 的 `--wallpaper-skin`（见 styles/public.scss 的壁纸层说明），
- * 因此必须是**纯 CSS 值**：只有渐变和纯色，没有图片、没有网络请求 —— 这是皮肤能做到
- * 「点一下下一帧就变」的原因（对比图片壁纸的「下载 + 解码」）。
- *
- * ⚠️ 皮肤的亮度会参与明暗自适应（见 apply() → syncTone），深色皮肤在浅色主题下
- * 会自动把文字翻成浅色。新增皮肤后**必须真实渲染验证一次**：浅色主题 + 深色皮肤，
- * 首页文字应可读。`default` 是唯一不设背景的皮肤（交给主题底色）。
+ * 预设皮肤已整块移除（2026-09-30，用户明确要求）：
+ * 面板不再有「皮肤」分区，壁纸只剩「高级壁纸」里的渐变 / 图片链接。
+ * 旧的 `skin` 设置字段走 loadSettings 白名单被丢弃，并列入 LEGACY 清理。
+ * html 底色从此只有主题色；`--wallpaper-skin` 变量不再写入，
+ * public.scss 里的 `var(--wallpaper-skin, none)` 走 none 兜底。
  */
-const SKINS: Record<string, { label: string; group: string; background: string }> = {
-  // ---------------- 基础 ----------------
-  // default 不设背景：交给 html 的主题底色（--bg-c / 暗色 --dark-bg-c），
-  // 否则暗色模式下会被这里的亮色写死，且不透明背景会盖住壁纸层。
-  default: { label: '默认', group: '基础', background: 'none' },
-
-  // ---------------- 清新 ----------------
-  // 导航页是「图标 + 文字」的密集版面，用户会长时间停在这一屏 —— 背景太深（黑墙）
-  // 或太白（刺眼）都难受。这一组刻意取**低饱和 + 中高明度**的柔和色：
-  // 白天不晃眼、夜里不压抑，白天黑夜同一套都成立。
-  // 明度都压在自适应翻转线（0.42）之上，因此始终是「浅底深字」，
-  // 站点图标与站名永远是最清楚的那一层。
-  mistWhite: { label: '月白', group: '清新', background: 'linear-gradient(160deg, #eef3f9 0%, #dfe8f3 100%)' },
-  dawnMist: { label: '晨雾', group: '清新', background: 'linear-gradient(160deg, #e6eef7 0%, #d8e4f2 55%, #ece6f4 100%)' },
-  seaSalt: { label: '海盐', group: '清新', background: 'linear-gradient(150deg, #cfeaee 0%, #d6e2f7 100%)' },
-  mintMilk: { label: '薄荷奶', group: '清新', background: 'linear-gradient(150deg, #d5f0e7 0%, #cfe6f7 100%)' },
-  bamboo: { label: '竹青', group: '清新', background: 'linear-gradient(150deg, #d9efdf 0%, #c8e5ea 100%)' },
-  skyMist: { label: '天青雾', group: '清新', background: 'linear-gradient(150deg, #d3e7fa 0%, #e4f0fb 100%)' },
-  sakura: { label: '樱雪', group: '清新', background: 'linear-gradient(150deg, #fbe2ea 0%, #efe1f8 100%)' },
-  lotus: { label: '藕荷', group: '清新', background: 'linear-gradient(150deg, #eae1f6 0%, #e0ddf8 100%)' },
-  taro: { label: '香芋', group: '清新', background: 'linear-gradient(150deg, #e2d6f8 0%, #efe3f7 100%)' },
-  oatMilk: { label: '燕麦', group: '清新', background: 'linear-gradient(150deg, #f7efe1 0%, #eee3d2 100%)' },
-  celadon: { label: '青瓷', group: '清新', background: 'linear-gradient(150deg, #d3eae4 0%, #c6e0dd 100%)' },
-  dusk: { label: '薄暮', group: '清新', background: 'linear-gradient(150deg, #f5e5d6 0%, #e0d6f0 100%)' },
-  smokeBlue: { label: '烟灰蓝', group: '清新', background: 'linear-gradient(150deg, #c7d6e8 0%, #dde6f1 100%)' },
-  daiQing: { label: '黛青', group: '清新', background: 'linear-gradient(150deg, #bcd5d2 0%, #d5e4e1 100%)' },
-  matcha: { label: '抹茶', group: '清新', background: 'linear-gradient(150deg, #cfe0c4 0%, #e7eeda 100%)' },
-  mistRose: { label: '藕粉', group: '清新', background: 'linear-gradient(150deg, #eed3de 0%, #f3e5ec 100%)' },
-
-  // ---------------- 明亮 ----------------
-  clear: { label: '干净明亮', group: '明亮', background: 'linear-gradient(135deg, #ffffff 0%, #e8eef7 100%)' },
-  ios: { label: 'iOS 屏半', group: '明亮', background: 'linear-gradient(90deg, #f8fafc 0 50%, #17191f 50%)' },
-  material: { label: 'Material 粉', group: '明亮', background: 'linear-gradient(135deg, #f8e9ee 0%, #ffffff 100%)' },
-  paper: { label: '纸白', group: '明亮', background: 'linear-gradient(135deg, #ffffff 0%, #f4f6f8 100%)' },
-  ivory: { label: '象牙白', group: '明亮', background: 'linear-gradient(135deg, #fffdf7 0%, #f5efe2 100%)' },
-  mint: { label: '薄荷', group: '明亮', background: 'linear-gradient(135deg, #f2fdf6 0%, #d8f3e3 100%)' },
-  sky: { label: '天青', group: '明亮', background: 'linear-gradient(135deg, #f4fbff 0%, #dcecfb 100%)' },
-  sand: { label: '暖沙', group: '明亮', background: 'linear-gradient(135deg, #fffaf0 0%, #f6e7cd 100%)' },
-
-  // ---------------- 深色 ----------------
-  midnight: { label: '午夜黑', group: '深色', background: 'linear-gradient(135deg, #090b12 0%, #202333 100%)' },
-  deepBlue: { label: '沉静蓝', group: '深色', background: 'linear-gradient(135deg, #111827 0%, #1e293b 100%)' },
-  graphite: { label: '石墨灰', group: '深色', background: 'linear-gradient(135deg, #1b1b1d 0%, #34343a 100%)' },
-  slate: { label: '石板', group: '深色', background: 'linear-gradient(135deg, #1e232b 0%, #39414d 100%)' },
-  navy: { label: '深海蓝', group: '深色', background: 'linear-gradient(135deg, #0a1930 0%, #16385f 100%)' },
-  polarGreen: { label: '极光青', group: '深色', background: 'linear-gradient(135deg, #0f2a2e 0%, #173b3b 100%)' },
-  forest: { label: '松林', group: '深色', background: 'linear-gradient(135deg, #0c1f16 0%, #1d4430 100%)' },
-  starPurple: { label: '星云紫', group: '深色', background: 'linear-gradient(135deg, #211a34 0%, #3b285f 100%)' },
-  wine: { label: '酒红', group: '深色', background: 'linear-gradient(135deg, #2a0d16 0%, #4d1526 100%)' },
-  warmBrown: { label: '余烬棕', group: '深色', background: 'linear-gradient(135deg, #2c2019 0%, #4b2f1f 100%)' },
-  coffee: { label: '咖啡', group: '深色', background: 'linear-gradient(135deg, #1f1712 0%, #3d2b1f 100%)' },
-
-  // ---------------- 品牌 ----------------
-  // 取自各家产品界面的公开主色调，命名只作配色来源的描述。
-  githubDark: { label: 'GitHub 暗夜', group: '品牌', background: 'linear-gradient(135deg, #0d1117 0%, #161b22 60%, #21262d 100%)' },
-  vscode: { label: 'VS Code 深蓝', group: '品牌', background: 'linear-gradient(135deg, #1e1e1e 0%, #252526 60%, #0e639c 100%)' },
-  discord: { label: 'Discord 靛蓝', group: '品牌', background: 'linear-gradient(135deg, #1a1c20 0%, #2c2f33 60%, #404eed 100%)' },
-  spotify: { label: 'Spotify 黑绿', group: '品牌', background: 'linear-gradient(135deg, #121212 0%, #0f2a1c 70%, #1db954 100%)' },
-  netflix: { label: 'Netflix 影院红', group: '品牌', background: 'linear-gradient(135deg, #141414 0%, #2b0a0a 70%, #e50914 100%)' },
-  vercel: { label: 'Vercel 黑白', group: '品牌', background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)' },
-  notion: { label: 'Notion 墨白', group: '品牌', background: 'linear-gradient(135deg, #191919 0%, #2f2f2f 100%)' },
-  slack: { label: 'Slack 茄紫', group: '品牌', background: 'linear-gradient(135deg, #1d1c1d 0%, #3f0e40 100%)' },
-  apple: { label: 'Apple 深空灰', group: '品牌', background: 'linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%)' },
-  tencent: { label: '腾讯深蓝', group: '品牌', background: 'linear-gradient(135deg, #0b1c3d 0%, #0f4c9e 100%)' },
-  bilibili: { label: '哔哩粉', group: '品牌', background: 'linear-gradient(135deg, #16162a 0%, #3d1b3d 70%, #fb7299 100%)' },
-  xiaomi: { label: '米橙', group: '品牌', background: 'linear-gradient(135deg, #1c1208 0%, #3a2408 70%, #ff6900 100%)' },
-}
 
 /**
  * 渐变壁纸预设：一键可用的现成配色，给「高级壁纸 → 渐变」当选项用。
  *
- * 与皮肤的区别是层次与定位：皮肤写在 html 底色上（最底层，低调基调），
- * 渐变写在 body::after（图片之上，直接当壁纸用）。两边都用纯 CSS，零请求。
- *
- * 分两组：「清新柔和」低饱和、明度在翻转线之上，导航页长时间停留不累；
- * 「强对比」用于想要强烈视觉冲击的场合。`group` 只影响面板分组，不参与渲染。
+ * 渐变写在 body::after（图片之上，直接当壁纸用），纯 CSS、零请求。
+ * 原来的「强对比」分组已随皮肤一起按用户要求移除（2026-09-30），
+ * 只保留「清新柔和」：低饱和、明度在翻转线之上，导航页长时间停留不累。
+ * `group` 只影响面板分组，不参与渲染。
  */
 export const WALLPAPER_GRADIENTS: { label: string; group: string; value: string }[] = [
-  // ---------------- 清新柔和 ----------------
   { label: '晨雾', group: '清新柔和', value: 'linear-gradient(160deg, #dbe7f3 0%, #cddcee 50%, #ecdff2 100%)' },
   { label: '月白', group: '清新柔和', value: 'linear-gradient(160deg, #e8eef7 0%, #d5dfec 100%)' },
   { label: '海盐', group: '清新柔和', value: 'linear-gradient(150deg, #8fe3e0 0%, #cfe0f7 100%)' },
@@ -133,26 +57,9 @@ export const WALLPAPER_GRADIENTS: { label: string; group: string; value: string 
   { label: '米杏', group: '清新柔和', value: 'linear-gradient(150deg, #fbe3c4 0%, #eed3b3 100%)' },
   { label: '沙丘', group: '清新柔和', value: 'linear-gradient(150deg, #f4e3c8 0%, #e6d7c3 50%, #d3dae4 100%)' },
   { label: '薄暮', group: '清新柔和', value: 'linear-gradient(150deg, #f7d7b8 0%, #dcc2e0 50%, #b9c8ea 100%)' },
-
-  // ---------------- 强对比 ----------------
-  { label: '落日熔金', group: '强对比', value: 'linear-gradient(135deg, #ff6b35 0%, #f7c59f 40%, #6a0572 100%)' },
-  { label: '赛博霓虹', group: '强对比', value: 'linear-gradient(135deg, #fc00ff 0%, #00dbde 100%)' },
-  { label: '冰火', group: '强对比', value: 'linear-gradient(135deg, #ff0844 0%, #00c6ff 100%)' },
-  { label: '霓虹紫青', group: '强对比', value: 'linear-gradient(135deg, #8a2be2 0%, #00e5ff 100%)' },
-  { label: '烈焰', group: '强对比', value: 'linear-gradient(135deg, #f12711 0%, #f5af19 100%)' },
-  { label: '极光', group: '强对比', value: 'linear-gradient(135deg, #00d2ff 0%, #3a47d5 100%)' },
-  { label: '糖果', group: '强对比', value: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
-  { label: '青柠', group: '强对比', value: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' },
-  { label: '黄昏', group: '强对比', value: 'linear-gradient(135deg, #2c3e50 0%, #fd746c 100%)' },
-  { label: '深海', group: '强对比', value: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)' },
-  { label: '葡萄', group: '强对比', value: 'linear-gradient(135deg, #654ea3 0%, #eaafc8 100%)' },
-  { label: '矩阵绿', group: '强对比', value: 'linear-gradient(135deg, #000000 0%, #0f9b0f 100%)' },
-  { label: '皇家蓝', group: '强对比', value: 'linear-gradient(135deg, #141e30 0%, #243b55 100%)' },
-  { label: '蜜桃', group: '强对比', value: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)' },
 ]
 
 const DEFAULTS: WallpaperSettings = {
-  skin: 'default',
   accent: '#0071e3',
   // 新默认遵循网站自身标准位置；用户可在「高级壁纸」右侧切换第三方源或纯色图标。
   faviconSource: 'site',
@@ -182,8 +89,9 @@ const DEFAULTS: WallpaperSettings = {
   layoutCols: 5,
   layoutColGap: 30,
   layoutRowGap: 30,
-  // 搜索框：宽度 / 圆角（透明度复用 inputOpacity）
+  // 搜索框：宽度 / 高度 / 圆角（透明度复用 inputOpacity）
   searchWidth: 560,
+  searchHeight: 46,
   searchRadius: 12,
 }
 
@@ -199,7 +107,7 @@ function storageKey(isAdmin: boolean) {
  * （5MB 级别，且是同源共享）。`loadSettings()` 只在内存里把它们折掉、不写回，
  * 所以需要单独清一次。
  */
-const LEGACY_WALLPAPER_KEYS = ['image', 'recentImages', 'imageSource', 'customSource', 'folderName']
+const LEGACY_WALLPAPER_KEYS = ['image', 'recentImages', 'imageSource', 'customSource', 'folderName', 'skin']
 
 /**
  * 把存储里的旧字段清掉（重写为迁移后的干净设置）。
@@ -253,7 +161,6 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
     // 那轮「写盘防抖」要修掉的开销，等于白修。
     // 未知键一律丢弃（与 `stores/setting.ts` 的 `pickKnownSettings()` 同一原则）。
     return {
-      skin: typeof parsed.skin === 'string' ? parsed.skin : DEFAULTS.skin,
       accent: typeof parsed.accent === 'string' ? parsed.accent : DEFAULTS.accent,
       faviconSource,
       source,
@@ -284,6 +191,7 @@ function loadSettings(isAdmin: boolean): WallpaperSettings {
       layoutColGap: clamp(parsed.layoutColGap, 0, 80, DEFAULTS.layoutColGap),
       layoutRowGap: clamp(parsed.layoutRowGap, 0, 80, DEFAULTS.layoutRowGap),
       searchWidth: clamp(parsed.searchWidth, 260, 900, DEFAULTS.searchWidth),
+      searchHeight: clamp(parsed.searchHeight, 36, 80, DEFAULTS.searchHeight),
       searchRadius: clamp(parsed.searchRadius, 0, 28, DEFAULTS.searchRadius),
     }
   }
@@ -398,8 +306,6 @@ function imageLuminance(url: string): Promise<number | undefined> {
   })
 }
 
-export const wallpaperSkins = SKINS
-
 export const useWallpaperStore = defineStore('wallpaper', () => {
   const adminStore = useAdminStore()
   const settings = ref<WallpaperSettings>(loadSettings(adminStore.isAdmin))
@@ -418,17 +324,14 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
 
   /**
    * 按当前壁纸更新文字色调。
-   * 优先级：图片 > 渐变壁纸 > 皮肤 —— 三者按 z-index 从高到低，以最上面那层为准。
+   * 优先级：图片 > 渐变壁纸 —— 按 z-index 从上到下，以最上面那层为准。
    * 用 key 去重，避免拖滑块时每次都重新解码整张图。
-   *
-   * 皮肤必须参与：深色皮肤配浅色主题时，文字若不翻白就是黑底黑字。
-   * （`default` 皮肤的背景是 `none`，传进来是空串，行为与从前一致。）
    */
-  function syncTone(image: string, gradient: string, skin: string) {
+  function syncTone(image: string, gradient: string) {
     const autoDim = settings.value.autoDim
     const surface = image
       ? `img:${image.length}:${image.slice(-48)}`
-      : (gradient ? `g:${gradient}` : (skin ? `s:${skin}` : 'none'))
+      : (gradient ? `g:${gradient}` : 'none')
     const key = `${autoDim ? 'on' : 'off'}|${surface}`
     if (key === lastToneKey)
       return
@@ -492,11 +395,9 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     const root = document.documentElement
     const body = document.body
     const current = settings.value
-    const skin = SKINS[current.skin] || SKINS.default
-    // 本地图片 / 文件夹 / 壁纸源已下线，现在只可能来自外链 URL
+    // 本地图片 / 文件夹 / 壁纸源 / 皮肤均已下线，图片只可能来自外链 URL
     const image = current.source === 'url' ? current.imageUrl : ''
 
-    root.style.setProperty('--wallpaper-skin', skin.background)
     root.style.setProperty('--wallpaper-accent', current.accent || '#0071e3')
     root.style.setProperty('--wallpaper-opacity', String(clamp(current.wallpaperOpacity, 0, 100, 60) / 100))
     root.style.setProperty('--wallpaper-blur', `${clamp(current.wallpaperBlur, 0, 32, 0)}px`)
@@ -519,6 +420,7 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     root.style.setProperty('--compact-icon-size', `${compactIconPx.toFixed(1)}px`)
     root.style.setProperty('--compact-icon-padding', `${(compactIconPx * paddingPct / 100).toFixed(1)}px`)
     root.style.setProperty('--wallpaper-search-width', `${clamp(current.searchWidth, 260, 900, DEFAULTS.searchWidth)}px`)
+    root.style.setProperty('--wallpaper-search-height', `${clamp(current.searchHeight, 36, 80, DEFAULTS.searchHeight)}px`)
     root.style.setProperty('--wallpaper-search-radius', `${clamp(current.searchRadius, 0, 28, DEFAULTS.searchRadius)}px`)
     // 自定义布局：行数/列数/间距。间距用「图标大小 × 百分比」换算，
     // 这样调大图标时间距会一起放大，不会出现「图标很大但挤在一起」。
@@ -537,11 +439,10 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     // 验收脚本（和排查问题的人）可以直接从 html 上读到当前样式，不用去翻 localStorage。
     root.dataset.siteLayout = current.siteLayout
     body.style.setProperty('--primary-c', current.accent || '')
-    // 皮肤也要参与明暗判定：它铺在 html 上，是「没有图片/渐变壁纸时」唯一的底色
+    // 只有图片/渐变参与明暗判定（皮肤已移除，html 底色就是主题色，永远「浅底深字」成立）
     syncTone(
       image,
       current.source === 'gradient' ? current.gradient : '',
-      skin.background === 'none' ? '' : skin.background,
     )
   }
 
@@ -557,10 +458,6 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
    */
   function update(patch: Partial<WallpaperSettings>) {
     Object.assign(settings.value, patch)
-  }
-
-  function setSkin(skin: string) {
-    update({ skin, source: 'none', imageUrl: '', gradient: '' })
   }
 
   function setImageUrl(imageUrl: string) {
@@ -599,23 +496,13 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
   }
 
   /**
-   * 小风车：随机换一套皮肤或渐变壁纸，返回换了哪一种。
+   * 小风车：随机换一套渐变壁纸，返回换了没有。
    *
-   * 为什么不再是「随机换一张图片」：本地图片 / 壁纸文件夹 / 壁纸源网站已按用户要求移除。
-   * 皮肤与渐变都是纯 CSS —— 零请求、零解码，点下去下一帧就变，这才是「秒开」的做法。
-   *
-   * 皮肤与渐变各 50% 概率：两种都算「壁纸」，都该有机会被抽到。
-   * 抽到 `default` 皮肤（背景 none，交主题底色）是合法结果，不特殊处理。
+   * 皮肤已整块移除（2026-09-30），壁纸只剩「渐变 / 图片链接 / 无」，
+   * 渐变是纯 CSS —— 零请求、零解码，点下去下一帧就变，这才是「秒开」的做法。
+   * 图片链接是用户手贴的外链、没有预设清单可随机，不参与。
    */
-  function shuffleWallpaper(): 'skin' | 'gradient' | 'none' {
-    const useSkin = Math.random() < 0.5
-    if (useSkin) {
-      const key = pickDifferent(Object.keys(SKINS), settings.value.skin)
-      if (!key)
-        return 'none'
-      update({ skin: key, source: 'none', imageUrl: '', gradient: '' })
-      return 'skin'
-    }
+  function shuffleWallpaper(): 'gradient' | 'none' {
     const gradient = pickDifferent(WALLPAPER_GRADIENTS.map(item => item.value), settings.value.gradient)
     if (!gradient)
       return 'none'
@@ -673,7 +560,6 @@ export const useWallpaperStore = defineStore('wallpaper', () => {
     update,
     // 供 App.vue 在启动时把壁纸变量注入 DOM；此前遗漏导出会导致 setup 抛错、整页白屏
     apply,
-    setSkin,
     setImageUrl,
     setGradient,
     removeWallpaper,

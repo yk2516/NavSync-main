@@ -4,12 +4,11 @@ const wallpaperStore = useWallpaperStore()
 const spinning = ref(false)
 
 /**
- * 小风车：点一下随机换一套皮肤或渐变。
+ * 小风车：点一下随机换一套渐变壁纸。
  *
- * 2026-09-20 起壁纸只剩「皮肤 / 渐变 / 无」三种形态（本地图片、壁纸文件夹、
- * 壁纸源网站都已按用户要求移除），所以这里**没有任何异步依赖** ——
- * 不读 IndexedDB、不发请求、不等权限，纯同步切换。
- * 原来的 `restoreFolderImages` / `withTimeout` / 目录句柄恢复逻辑一并删除。
+ * 2026-09-20 起壁纸只剩「渐变 / 图片链接 / 无」三种形态（本地图片、壁纸文件夹、
+ * 壁纸源网站都已按用户要求移除）；2026-09-30 皮肤也整块移除，小风车只在
+ * 渐变预设里随机。纯同步切换：不读 IndexedDB、不发请求、不等权限。
  */
 function spin() {
   if (spinning.value)
@@ -18,7 +17,7 @@ function spin() {
   try {
     const result = wallpaperStore.shuffleWallpaper()
     if (result === 'none')
-      window.$message?.info('还没有可切换的皮肤或渐变，先去「壁纸与外观」里加几个', { duration: 3200 })
+      window.$message?.info('还没有可切换的渐变壁纸', { duration: 3200 })
   }
   finally {
     setTimeout(() => spinning.value = false, 620)
@@ -31,8 +30,8 @@ function spin() {
     type="button"
     class="wallpaper-fan"
     :class="{ 'wallpaper-fan--spinning': spinning }"
-    title="随机换一套皮肤或渐变"
-    aria-label="随机换一套皮肤或渐变"
+    title="随机换一套渐变壁纸"
+    aria-label="随机换一套渐变壁纸"
     @click="spin"
   >
     <span class="wallpaper-fan__icon" i-cus:fan />

@@ -2,7 +2,6 @@
 import { vOnClickOutside } from '@vueuse/components'
 import type { Search } from '@/types'
 import { resolveFaviconUrl } from '@/utils'
-import searchEngine from '@/utils/search-engine'
 
 const settingStore = useSettingStore()
 const engineStore = useSearchEngineStore()
@@ -10,12 +9,6 @@ const engineStore = useSearchEngineStore()
 const keyword = ref('')
 
 const currentIndex = ref(0)
-
-const showKeyDownSel = ref(false)
-
-const noticeKeyList = ref<string[]>([])
-
-const selectedIndex = ref(0)
 
 const searchInputRef = ref<HTMLInputElement>()
 
@@ -49,7 +42,6 @@ function search() {
   if (!currentSearch)
     return
   window.open(`${currentSearch.url}?${currentSearch.key}=${encodeURIComponent(keyword.value)}`)
-  clearNoticeKey()
   searchInputRef.value?.blur()
 }
 
@@ -66,11 +58,7 @@ function selectEngine(i: number) {
 }
 
 function toggleEngineBar() {
-  const next = !engineBarVisible.value
-  engineBarVisible.value = next
-  // 引擎条和关键词联想都在搜索框下方，同时出现会打架
-  if (next)
-    clearNoticeKey()
+  engineBarVisible.value = !engineBarVisible.value
 }
 
 function closeEngineBar() {
@@ -80,116 +68,6 @@ function closeEngineBar() {
 function handleCloseClick() {
   keyword.value = ''
   searchInputRef.value?.focus()
-}
-
-function handleKeyDown(_e: KeyboardEvent) {
-  // placeholder for keydown events without specific modifier
-}
-
-interface Params {
-  eng: string
-  list: string[]
-  wd: string
-}
-
-function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): T {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  return function (this: any, ...args: Parameters<T>) {
-    if (timer)
-      clearTimeout(timer)
-    timer = setTimeout(() => fn.apply(this, args), delay)
-  } as T
-}
-
-const requestEngApi = debounce(() => {
-  const curSearch = engines.value[currentIndex.value]
-  if (!curSearch)
-    return
-  // 自定义引擎没有联想接口，直接跳过（否则会回落到内置的百度建议，结果对不上）
-  if (engineStore.isCustom(curSearch.enName))
-    return
-  // 记录当前搜索引擎索引，用于竞态检测：回调返回时若已切换引擎则丢弃
-  const capturedIndex = currentIndex.value
-  searchEngine.complete(curSearch.enName, keyword.value, (params: Params) => {
-    if (keyword.value.trim().length === 0)
-      return
-    // 竞态保护：搜索引擎已切换则丢弃旧回调结果
-    if (currentIndex.value !== capturedIndex)
-      return
-
-    noticeKeyList.value.splice(0, noticeKeyList.value.length || 0)
-    noticeKeyList.value.push(keyword.value, ...params.list)
-  })
-}, 100)
-
-function handleInput(_e: Event) {
-  if (!keyword.value.trim()) {
-    clearNoticeKey()
-    return
-  }
-  showKeyDownSel.value = true
-  selectedIndex.value = 0
-  // 联想列表出现时收起引擎条，两者都在搜索框下方
-  engineBarVisible.value = false
-  requestEngApi()
-}
-
-function jumpSearch(i: number) {
-  keyword.value = noticeKeyList.value[i]
-  search()
-}
-
-function clearNoticeKey() {
-  showKeyDownSel.value = false
-  noticeKeyList.value.splice(0, noticeKeyList.value.length || 0)
-  selectedIndex.value = 0
-  noticeKeyList.value.push(keyword.value)
-}
-
-function keyNext(e: Event) {
-  e.preventDefault()
-  // 推荐列表为空时直接返回，避免取模 NaN 导致 keyword 被置为 undefined
-  if (!noticeKeyList.value.length)
-    return
-  selectedIndex.value = (selectedIndex.value + 1) % noticeKeyList.value.length || 0
-  keyword.value = noticeKeyList.value[selectedIndex.value]
-}
-
-function keyPrev(e: Event) {
-  e.preventDefault()
-  // 推荐列表为空时直接返回，避免取模 NaN 导致 keyword 被置为 undefined
-  if (!noticeKeyList.value.length)
-    return
-  selectedIndex.value = (selectedIndex.value - 1 + noticeKeyList.value.length) % noticeKeyList.value.length || 0
-  keyword.value = noticeKeyList.value[selectedIndex.value]
-}
-
-function handleKeyRecomend(e: Event) {
-  const clickedInput = e.target === searchInputRef.value
-  if (clickedInput)
-    return
-
-  clearNoticeKey()
-}
-
-function handleHover(i: number) {
-  selectedIndex.value = i
-}
-
-function handleLeave() {
-  selectedIndex.value = 0
-}
-
-function handleFocus(_e: Event) {
-  handleInput(new Event('input'))
-}
-
-function setActive(_i: number) {
-  selectedIndex.value = _i
-}
-
-function setInactive(_i: number) {
-  selectedIndex.value = 0
 }
 
 // ---------- 自定义搜索引擎（添加 / 编辑 / 删除）----------
@@ -311,28 +189,10 @@ watch(manageVisible, (visible) => {
   <div class="search-wrap" my-32 flex-center>
     <div class="search-inner">
       <div class="search" style="position: relative;">
-        <div v-show="showKeyDownSel" v-on-click-outside="handleKeyRecomend" absolute z-9 class="search-sel" style="top: 100%; width: 100%; height: 10rem;" @mouseleave="handleLeave()">
-          <!-- keys recommend -->
-          <div z-9 bg-fff l-0 t-100p dark="border-grey-8 bg-18181a">
-            <div
-              v-for="(item, i) in noticeKeyList.slice(1)" :key="i + 1" text-14 md="text-15" lg="text-15" p-5
-              :class="{ 'bg-$site-hover-c': i + 1 === selectedIndex }"
-              @mouseover="handleHover(i + 1)"
-              @click="jumpSearch(i + 1)"
-              @touchstart="setActive(i + 1)"
-              @touchend="setInactive(i + 1)"
-            >
-              <div flex-left gap-x-8 style="margin: 0.75rem; margin-left: 2rem;">
-                <div>{{ item }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- 当前引擎图标：点它展开下方的引擎列表 -->
         <button
           type="button"
-          class="search-sel engine-trigger"
+          class="engine-trigger"
           :class="{ 'engine-trigger--open': engineBarVisible }"
           :title="`当前搜索引擎：${engines[currentIndex]?.name || ''}（点击切换）`"
           @click="toggleEngineBar"
@@ -349,13 +209,6 @@ watch(manageVisible, (visible) => {
             dark="text-$text-dark-c-1"
             placeholder="输入关键词，回车搜索"
             @keydown.enter="search"
-            @keydown.exact="handleKeyDown"
-            @input.exact="handleInput"
-            @focus="handleFocus"
-            @keydown.down.exact="keyNext"
-            @keydown.up.exact="keyPrev"
-            @keydown.ctrl.n.exact="keyNext"
-            @keydown.ctrl.p.exact="keyPrev"
           >
         </div>
         <div v-if="keyword?.length > 0" flex-center gap-x-4 w-44>
@@ -488,7 +341,8 @@ watch(manageVisible, (visible) => {
 .search {
   display: flex;
   align-items: center;
-  height: 46px;
+  /* 高度由壁纸面板「搜索框高度」控制（默认 46px，与历史默认一致） */
+  height: var(--wallpaper-search-height, 46px);
   border-radius: var(--wallpaper-search-radius, 12px);
   background-color: color-mix(in srgb, var(--main-bg-c) calc(var(--wallpaper-input-opacity, .6) * 100%), transparent);
   border: 1px solid color-mix(in srgb, var(--wallpaper-accent, var(--primary-c)) 16%, transparent);
@@ -734,10 +588,6 @@ watch(manageVisible, (visible) => {
 }
 
 @media screen and (max-width: 640px) {
-  .search {
-    height: 42px;
-  }
-
   .engine-item {
     width: 28px;
     height: 28px;
